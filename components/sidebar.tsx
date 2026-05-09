@@ -17,6 +17,7 @@ import {
   BarChart3,
   Settings,
   Command,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -117,6 +118,15 @@ export function Sidebar() {
             <p className="text-[13px] font-semibold text-white">Damian M.</p>
             <p className="text-[11px] text-muted">MSc · Med Apps · TA</p>
           </div>
+          <form method="POST" action="/api/auth/logout" className="ml-auto">
+            <button
+              type="submit"
+              title="Sign out"
+              className="flex h-7 w-7 items-center justify-center rounded-md border border-white/[0.06] bg-white/[0.02] text-muted transition-colors hover:bg-white/[0.06] hover:text-white"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </button>
+          </form>
         </div>
       </div>
     </aside>
