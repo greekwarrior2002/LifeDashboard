@@ -32,12 +32,14 @@ type ApiEvent = {
   end: string;
   location?: string;
   calendarName?: string;
+  calendarColor?: string;
 };
 
 type ApiResponse = {
   connected: boolean;
   events: ApiEvent[];
   error?: string;
+  noCalendarsSelected?: boolean;
 };
 
 function minutesSinceStart(iso: string, dayStart: Date): number {
@@ -122,6 +124,8 @@ export function CalendarTimeline() {
     ? "Google Calendar - not connected"
     : data?.error
       ? "Google Calendar - unable to load events"
+      : data?.noCalendarsSelected
+        ? "Google Calendar - no calendars selected"
       : `Google Calendar · ${events.length} ${events.length === 1 ? "event" : "events"}`;
 
   return (
@@ -162,6 +166,11 @@ export function CalendarTimeline() {
         />
       ) : data?.error ? (
         <EmptyState title="Calendar events couldn't load" body={data.error} />
+      ) : data?.noCalendarsSelected ? (
+        <EmptyState
+          title="No calendars selected"
+          body="Open Settings and choose which Google calendars should appear here."
+        />
       ) : events.length === 0 ? (
         <EmptyState
           title={
@@ -240,6 +249,11 @@ export function CalendarTimeline() {
                       "absolute inset-y-1 left-1 w-[3px] rounded-full bg-gradient-to-b",
                       tone.bar,
                     )}
+                    style={
+                      e.calendarColor
+                        ? { background: e.calendarColor }
+                        : undefined
+                    }
                   />
                   <div className="px-3 py-2">
                     <p className="text-[12px] font-medium text-white">{e.title}</p>

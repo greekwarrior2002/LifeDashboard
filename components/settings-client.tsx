@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Loader2, Save } from "lucide-react";
 import { GlassCard, CardHeader } from "@/components/ui/glass-card";
 import { OAuthButton } from "@/components/onboarding/oauth-button";
+import { CalendarSettingsPanel } from "@/components/calendar-settings-panel";
 import {
   AppleHealthConnect,
   AppleHealthSetupPanel,
@@ -109,6 +110,7 @@ export function SettingsClient({
               onChange={refresh}
             />
           </div>
+          <CalendarSettingsPanel connected={state.integrations.google.connected} />
           <div className="flex items-center justify-between rounded-lg border border-white/[0.05] bg-white/[0.015] px-3 py-3">
             <div>
               <p className="text-[13px] text-white">TickTick</p>

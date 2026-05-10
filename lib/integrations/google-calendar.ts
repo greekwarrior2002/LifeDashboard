@@ -121,6 +121,17 @@ export type CalendarEvent = {
   htmlLink?: string;
   calendarId?: string;
   calendarName?: string;
+  calendarColor?: string;
+};
+
+export type GoogleCalendar = {
+  id: string;
+  summary: string;
+  accessRole?: string;
+  selected?: boolean;
+  hidden?: boolean;
+  backgroundColor?: string;
+  foregroundColor?: string;
 };
 
 type GoogleCalendarListResponse = {
@@ -130,6 +141,8 @@ type GoogleCalendarListResponse = {
     accessRole?: string;
     selected?: boolean;
     hidden?: boolean;
+    backgroundColor?: string;
+    foregroundColor?: string;
   }>;
 };
 
@@ -167,29 +180,58 @@ async function fetchGoogleJSON<T>(url: URL, accessToken: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-export async function listGoogleEvents(
-  secret: string,
-  opts: { from: Date; to: Date },
-): Promise<CalendarEvent[] | null> {
-  const tokens = await getValidTokens(secret);
-  if (!tokens) return null;
-
+async function getGoogleCalendarsForToken(
+  accessToken: string,
+): Promise<GoogleCalendar[]> {
   const calendarListUrl = new URL(
     "https://www.googleapis.com/calendar/v3/users/me/calendarList",
   );
   calendarListUrl.searchParams.set("minAccessRole", "reader");
   const calendarList = await fetchGoogleJSON<GoogleCalendarListResponse>(
     calendarListUrl,
-    tokens.accessToken,
+    accessToken,
   );
 
-  const calendars = (calendarList.items ?? [])
+  return (calendarList.items ?? [])
     .filter((calendar) => calendar.id && canReadCalendar(calendar.accessRole))
-    .filter((calendar) => !calendar.hidden || calendar.selected);
+    .map((calendar) => ({
+      id: calendar.id,
+      summary: calendar.summary ?? calendar.id,
+      accessRole: calendar.accessRole,
+      selected: calendar.selected,
+      hidden: calendar.hidden,
+      backgroundColor: calendar.backgroundColor,
+      foregroundColor: calendar.foregroundColor,
+    }));
+}
+
+export async function listGoogleCalendars(
+  secret: string,
+): Promise<GoogleCalendar[] | null> {
+  const tokens = await getValidTokens(secret);
+  if (!tokens) return null;
+  return getGoogleCalendarsForToken(tokens.accessToken);
+}
+
+export async function listGoogleEvents(
+  secret: string,
+  opts: { from: Date; to: Date; calendarIds?: string[] | null },
+): Promise<CalendarEvent[] | null> {
+  const tokens = await getValidTokens(secret);
+  if (!tokens) return null;
+
+  const availableCalendars = await getGoogleCalendarsForToken(tokens.accessToken);
+  const selectedIds = opts.calendarIds;
+  const calendars = availableCalendars.filter((calendar) => {
+    if (selectedIds && selectedIds.length > 0) return selectedIds.includes(calendar.id);
+    return !calendar.hidden || calendar.selected;
+  });
 
   const fallbackCalendars = calendars.length
     ? calendars
-    : [{ id: "primary", summary: "Primary" }];
+    : selectedIds && selectedIds.length === 0
+      ? []
+      : [{ id: "primary", summary: "Primary" }];
 
   const eventsByCalendar = await Promise.all(
     fallbackCalendars.map(async (calendar) => {
@@ -217,6 +259,7 @@ export async function listGoogleEvents(
         htmlLink: e.htmlLink,
         calendarId: calendar.id,
         calendarName: calendar.summary ?? calendar.id,
+        calendarColor: calendar.backgroundColor,
       }));
     }),
   );

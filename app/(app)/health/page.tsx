@@ -2,12 +2,15 @@ import { PageHeader } from "@/components/page-header";
 import { RecoveryHealth } from "@/components/cards/recovery-health";
 import { SleepConsistency } from "@/components/cards/sleep-consistency";
 import { LifeBalance } from "@/components/cards/life-balance";
+import { HealthSetupPanel } from "@/components/health-setup-panel";
+import { readHealthSamples } from "@/lib/health-store";
 import { getUser } from "@/lib/user-store";
 
 export const dynamic = "force-dynamic";
 
 export default async function HealthPage() {
   const user = await getUser();
+  const samples = await readHealthSamples();
   const connected = !!user.integrations.apple_health;
 
   return (
@@ -25,6 +28,7 @@ export default async function HealthPage() {
         <RecoveryHealth />
         <SleepConsistency />
       </div>
+      <HealthSetupPanel connected={connected} lastSync={samples.lastIngest?.at} />
       <LifeBalance />
     </div>
   );

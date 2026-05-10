@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-auth";
 import { listGoogleEvents } from "@/lib/integrations/google-calendar";
+import { getUser } from "@/lib/user-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +16,20 @@ export async function GET(req: NextRequest) {
   const to = toParam ? new Date(toParam) : endOfToday(from);
 
   try {
-    const events = await listGoogleEvents(auth.secret, { from, to });
+    const user = await getUser();
+    const calendarIds = user.calendar.selectedCalendarIds;
+    if (calendarIds && calendarIds.length === 0) {
+      return NextResponse.json({
+        connected: true,
+        noCalendarsSelected: true,
+        events: [],
+      });
+    }
+    const events = await listGoogleEvents(auth.secret, {
+      from,
+      to,
+      calendarIds,
+    });
     if (events === null) {
       return NextResponse.json({ connected: false, events: [] });
     }

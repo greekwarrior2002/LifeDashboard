@@ -13,7 +13,12 @@ type ApiEvent = {
   location?: string;
   calendarName?: string;
 };
-type ApiResponse = { connected: boolean; events: ApiEvent[]; error?: string };
+type ApiResponse = {
+  connected: boolean;
+  events: ApiEvent[];
+  error?: string;
+  noCalendarsSelected?: boolean;
+};
 
 function fmtTime(iso: string) {
   const d = new Date(iso);
@@ -71,6 +76,8 @@ export function UpNextCard() {
             ? "Not connected"
             : data.error
               ? "Unable to load"
+              : data.noCalendarsSelected
+                ? "No calendars selected"
               : `${upcoming.length} event${upcoming.length === 1 ? "" : "s"} upcoming`
         }
       />
@@ -93,6 +100,10 @@ export function UpNextCard() {
         </div>
       ) : data.error ? (
         <p className="mt-4 break-words text-[12px] text-muted">{data.error}</p>
+      ) : data.noCalendarsSelected ? (
+        <p className="mt-4 text-[12px] text-muted">
+          Choose visible Google calendars in Settings.
+        </p>
       ) : upcoming.length === 0 ? (
         <p className="mt-4 text-[12px] text-muted">Nothing upcoming.</p>
       ) : (

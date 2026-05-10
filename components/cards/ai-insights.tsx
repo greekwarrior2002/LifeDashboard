@@ -17,7 +17,7 @@ export function AIInsights() {
     <GlassCard glow="blue" className="p-5">
       <CardHeader
         title="AI Insights"
-        subtitle="Pattern detection · last 14 days"
+        subtitle="Demo insights · automation coming soon"
         icon={<Sparkles className="h-4 w-4 text-neon-blue" />}
       />
 

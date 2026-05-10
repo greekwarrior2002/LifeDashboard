@@ -11,6 +11,7 @@ import {
   type UserProfile,
   type UserState,
   type VisibleCards,
+  type CalendarPreferences,
 } from "@/lib/types/user";
 
 function resolveDataDir(): string {
@@ -44,6 +45,7 @@ type CookieState = {
   goals: UserGoals;
   visibleCards: VisibleCards;
   health: UserHealth;
+  calendar: CalendarPreferences;
 };
 
 function toCookieState(state: UserState): CookieState {
@@ -53,6 +55,7 @@ function toCookieState(state: UserState): CookieState {
     goals: state.goals,
     visibleCards: state.visibleCards,
     health: state.health,
+    calendar: state.calendar,
   };
 }
 
@@ -161,6 +164,7 @@ function mergeWithDefaults(partial: Partial<UserState> | null): UserState {
       ...(partial.visibleCards ?? {}),
     },
     health: { ...DEFAULT_USER_STATE.health, ...(partial.health ?? {}) },
+    calendar: { ...DEFAULT_USER_STATE.calendar, ...(partial.calendar ?? {}) },
     integrations: { ...(partial.integrations ?? {}) },
   };
 }
@@ -256,6 +260,7 @@ export function toPublic(state: UserState): PublicUserState {
     goals: state.goals,
     visibleCards: state.visibleCards,
     health: state.health,
+    calendar: state.calendar,
     integrations: {
       google: {
         connected: !!state.integrations.google,

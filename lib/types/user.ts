@@ -28,6 +28,11 @@ export type UserHealth = {
   habits: string[];
 };
 
+export type CalendarPreferences = {
+  selectedCalendarIds: string[] | null;
+  updatedAt: string | null;
+};
+
 export type IntegrationProvider = "google" | "ticktick" | "apple_health";
 
 export type EncryptedTokens = {
@@ -50,6 +55,7 @@ export type UserState = {
   goals: UserGoals;
   visibleCards: VisibleCards;
   health: UserHealth;
+  calendar: CalendarPreferences;
   integrations: Partial<Record<IntegrationProvider, IntegrationRecord>>;
 };
 
@@ -86,6 +92,10 @@ export const DEFAULT_USER_STATE: UserState = {
     sleepTargetHours: 8,
     recoveryGoal: 80,
     habits: [],
+  },
+  calendar: {
+    selectedCalendarIds: null,
+    updatedAt: null,
   },
   integrations: {},
 };

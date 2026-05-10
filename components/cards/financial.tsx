@@ -37,7 +37,7 @@ export function FinancialDashboard() {
     <GlassCard glow="blue" className="p-5">
       <CardHeader
         title="Cash Flow"
-        subtitle="May · stipend, TA, grading"
+        subtitle="Demo values · finance import coming soon"
         icon={<Wallet className="h-4 w-4 text-neon-blue" />}
         right={
           <Link

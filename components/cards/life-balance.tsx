@@ -27,7 +27,7 @@ export function LifeBalance() {
     <GlassCard glow="violet" className="p-5">
       <CardHeader
         title="Life Balance"
-        subtitle="8 dimensions · vs target"
+        subtitle="Demo self-ratings · editable tracking coming soon"
         icon={<Activity className="h-4 w-4 text-neon-violet" />}
       />
 

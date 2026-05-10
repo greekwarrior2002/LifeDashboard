@@ -18,7 +18,7 @@ export function ResearchCenter() {
     <GlassCard glow="violet" className="p-5">
       <CardHeader
         title="Research Command Center"
-        subtitle="3 active projects · 1 manuscript in review"
+        subtitle="Demo project tracker · editable store coming soon"
         icon={<FlaskConical className="h-4 w-4 text-neon-violet" />}
         right={
           <Link

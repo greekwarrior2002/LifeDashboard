@@ -25,6 +25,7 @@ type Patch = {
   goals?: Partial<UserState["goals"]>;
   visibleCards?: Partial<UserState["visibleCards"]>;
   health?: Partial<UserState["health"]>;
+  calendar?: Partial<UserState["calendar"]>;
 };
 
 export async function PATCH(req: NextRequest) {
@@ -45,6 +46,7 @@ export async function PATCH(req: NextRequest) {
       goals: { ...cur.goals, ...(body.goals ?? {}) },
       visibleCards: { ...cur.visibleCards, ...(body.visibleCards ?? {}) },
       health: { ...cur.health, ...(body.health ?? {}) },
+      calendar: { ...cur.calendar, ...(body.calendar ?? {}) },
     }));
     return NextResponse.json(toPublic(next));
   } catch (err) {
