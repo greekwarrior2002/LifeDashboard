@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-auth";
+import { getOAuthRedirectBaseUrl } from "@/lib/integrations/oauth-config";
 import {
   OAUTH_STATE_COOKIE_PREFIX,
   verifyStateToken,
@@ -48,7 +49,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const tokens = await exchangeTickTickCode(code);
+    const redirectBaseUrl = getOAuthRedirectBaseUrl(req);
+    const tokens = await exchangeTickTickCode(code, redirectBaseUrl);
     await persistTickTickTokens(auth.secret, tokens);
   } catch (err) {
     return popupResponse("error", (err as Error).message);

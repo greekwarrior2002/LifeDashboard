@@ -20,8 +20,9 @@ type StoredTickTickTokens = {
 
 export async function exchangeTickTickCode(
   code: string,
+  redirectBaseUrl?: string,
 ): Promise<StoredTickTickTokens> {
-  const config = getProviderConfig("ticktick");
+  const config = getProviderConfig("ticktick", redirectBaseUrl);
   if (!config) throw new Error("ticktick_not_configured");
 
   const body = new URLSearchParams({

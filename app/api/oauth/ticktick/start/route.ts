@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-auth";
-import { getProviderConfig } from "@/lib/integrations/oauth-config";
+import {
+  getOAuthRedirectBaseUrl,
+  getProviderConfig,
+} from "@/lib/integrations/oauth-config";
 import {
   OAUTH_STATE_COOKIE_PREFIX,
   createStateToken,
@@ -12,7 +15,8 @@ export async function GET(req: NextRequest) {
   const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
 
-  const config = getProviderConfig("ticktick");
+  const redirectBaseUrl = getOAuthRedirectBaseUrl(req);
+  const config = getProviderConfig("ticktick", redirectBaseUrl);
   if (!config) {
     return NextResponse.json(
       { error: "ticktick_oauth_not_configured" },

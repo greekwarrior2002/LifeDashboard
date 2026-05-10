@@ -45,6 +45,27 @@ function defaultRedirect(
   return `${base.replace(/\/$/, "")}/api/oauth/${provider}/callback`;
 }
 
+function redirectUri(
+  provider: IntegrationProvider,
+  envName: string,
+  redirectBaseUrl?: string,
+): string {
+  const configured = getEnv(envName);
+  if (!configured) return defaultRedirect(provider, redirectBaseUrl);
+
+  try {
+    const url = new URL(configured);
+    if (url.pathname === "/" || url.pathname === "") {
+      return `${url.origin}/api/oauth/${provider}/callback`;
+    }
+  } catch {
+    // Fall through and use the configured value as-is; OAuth providers will
+    // surface a precise redirect mismatch if it is malformed.
+  }
+
+  return configured;
+}
+
 export function getProviderConfig(
   provider: IntegrationProvider,
   redirectBaseUrl?: string,
@@ -58,9 +79,11 @@ export function getProviderConfig(
       tokenUrl: "https://oauth2.googleapis.com/token",
       clientId,
       clientSecret,
-      redirectUri:
-        getEnv("GOOGLE_OAUTH_REDIRECT_URI") ??
-        defaultRedirect("google", redirectBaseUrl),
+      redirectUri: redirectUri(
+        "google",
+        "GOOGLE_OAUTH_REDIRECT_URI",
+        redirectBaseUrl,
+      ),
       scope:
         "openid email https://www.googleapis.com/auth/calendar.readonly",
       extraAuthParams: {
@@ -80,9 +103,11 @@ export function getProviderConfig(
       tokenUrl: "https://ticktick.com/oauth/token",
       clientId,
       clientSecret,
-      redirectUri:
-        getEnv("TICKTICK_OAUTH_REDIRECT_URI") ??
-        defaultRedirect("ticktick", redirectBaseUrl),
+      redirectUri: redirectUri(
+        "ticktick",
+        "TICKTICK_OAUTH_REDIRECT_URI",
+        redirectBaseUrl,
+      ),
       scope: "tasks:read tasks:write",
     };
   }
