@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-auth";
-import { getProviderConfig } from "@/lib/integrations/oauth-config";
+import {
+  getOAuthRedirectBaseUrl,
+  getProviderConfig,
+} from "@/lib/integrations/oauth-config";
 import {
   OAUTH_STATE_COOKIE_PREFIX,
   createStateToken,
@@ -12,7 +15,8 @@ export async function GET(req: NextRequest) {
   const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
 
-  const config = getProviderConfig("google");
+  const redirectBaseUrl = getOAuthRedirectBaseUrl(req);
+  const config = getProviderConfig("google", redirectBaseUrl);
   if (!config) {
     return NextResponse.json(
       { error: "google_oauth_not_configured" },
