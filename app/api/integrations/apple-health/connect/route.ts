@@ -1,7 +1,9 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-auth";
 import { encryptJSON } from "@/lib/crypto";
+import { setIntegrationCookie } from "@/lib/integration-cookies";
+import { issueAppleHealthApiKey } from "@/lib/integrations/apple-health-token";
 import { setIntegration, toPublic } from "@/lib/user-store";
 import type { IntegrationRecord } from "@/lib/types/user";
 
@@ -19,8 +21,9 @@ export async function POST(req: NextRequest) {
   const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
 
-  // 32 random bytes → 43-char base64url. Always rotate on each /connect call.
-  const apiKey = randomBytes(32).toString("base64url");
+  // Stateless signed key: Health Auto Export will not send browser cookies, so
+  // the ingest route must verify this key with LIFEOS_AUTH_SECRET directly.
+  const apiKey = issueAppleHealthApiKey(auth.secret);
   const fingerprint = createHash("sha256").update(apiKey).digest("hex");
 
   const record: IntegrationRecord = {
@@ -30,9 +33,11 @@ export async function POST(req: NextRequest) {
   };
   const next = await setIntegration("apple_health", record);
 
-  return NextResponse.json({
+  const res = NextResponse.json({
     apiKey,
     webhookUrl: buildWebhookUrl(req),
     user: toPublic(next),
   });
+  setIntegrationCookie(res, "apple_health", record);
+  return res;
 }

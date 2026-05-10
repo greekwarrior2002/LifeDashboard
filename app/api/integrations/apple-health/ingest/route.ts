@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { findUserByApiKeyFingerprint, getUser } from "@/lib/user-store";
 import { ingestRollups } from "@/lib/health-store";
 import { parseHAEPayload, type HAEPayload } from "@/lib/integrations/apple-health";
+import { verifyAppleHealthApiKey } from "@/lib/integrations/apple-health-token";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,13 +29,24 @@ export async function POST(req: NextRequest) {
   const presentedFingerprint = createHash("sha256").update(presented).digest("hex");
 
   const found = await findUserByApiKeyFingerprint(presentedFingerprint);
-  if (!found || found.provider !== "apple_health" || !found.record.apiKeyFingerprint) {
+  const secret = process.env.LIFEOS_AUTH_SECRET;
+  const validStatelessKey = secret
+    ? verifyAppleHealthApiKey(secret, presented)
+    : false;
+  if (
+    !validStatelessKey &&
+    (!found || found.provider !== "apple_health" || !found.record.apiKeyFingerprint)
+  ) {
     return NextResponse.json({ error: "invalid_token" }, { status: 401 });
   }
   // Constant-time confirm against the stored fingerprint (defense in depth —
   // findUserByApiKeyFingerprint already matched, but the stored value is
   // canonical).
-  if (!timingSafeMatch(presentedFingerprint, found.record.apiKeyFingerprint)) {
+  if (
+    !validStatelessKey &&
+    found?.record.apiKeyFingerprint &&
+    !timingSafeMatch(presentedFingerprint, found.record.apiKeyFingerprint)
+  ) {
     return NextResponse.json({ error: "invalid_token" }, { status: 401 });
   }
 
