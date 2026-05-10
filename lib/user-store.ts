@@ -125,8 +125,27 @@ export function toPublic(state: UserState): PublicUserState {
         connected: !!state.integrations.ticktick,
         connectedAt: state.integrations.ticktick?.connectedAt ?? null,
       },
+      apple_health: {
+        connected: !!state.integrations.apple_health,
+        connectedAt: state.integrations.apple_health?.connectedAt ?? null,
+      },
     },
   };
+}
+
+export async function findUserByApiKeyFingerprint(
+  fingerprint: string,
+): Promise<{ provider: IntegrationProvider; record: IntegrationRecord } | null> {
+  const user = await getUser();
+  for (const [provider, record] of Object.entries(user.integrations)) {
+    if (record?.apiKeyFingerprint === fingerprint) {
+      return {
+        provider: provider as IntegrationProvider,
+        record,
+      };
+    }
+  }
+  return null;
 }
 
 export function getDataDirInfo() {

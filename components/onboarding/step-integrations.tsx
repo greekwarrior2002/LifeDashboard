@@ -1,9 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import { Plug } from "lucide-react";
 import type { CardKey } from "@/lib/types/user";
 import type { StepRenderProps } from "./wizard";
 import { OAuthButton } from "./oauth-button";
+import {
+  AppleHealthConnect,
+  AppleHealthSetupPanel,
+  type ConnectResponse,
+} from "./apple-health-connect";
 
 const cardOptions: Array<{ key: CardKey; label: string; description: string }> = [
   { key: "ticktick", label: "TickTick", description: "Tasks workspace" },
@@ -17,6 +23,8 @@ const cardOptions: Array<{ key: CardKey; label: string; description: string }> =
 ];
 
 export function StepIntegrations({ state, setState, refreshUser }: StepRenderProps) {
+  const [appleReveal, setAppleReveal] = useState<ConnectResponse | null>(null);
+
   const toggle = (key: CardKey) =>
     setState((prev) => ({
       ...prev,
@@ -67,6 +75,28 @@ export function StepIntegrations({ state, setState, refreshUser }: StepRenderPro
             />
           }
         />
+        <ProviderRow
+          name="Apple Health"
+          description="Sleep, HRV, steps via Health Auto Export (iOS)."
+          enabled={state.visibleCards.health}
+          onToggle={() => toggle("health")}
+          right={
+            <AppleHealthConnect
+              connected={state.integrations.apple_health.connected}
+              connectedAt={state.integrations.apple_health.connectedAt}
+              onChange={refreshUser}
+              onIssued={(r) => setAppleReveal(r)}
+              onDisconnected={() => setAppleReveal(null)}
+            />
+          }
+        />
+        {appleReveal ? (
+          <AppleHealthSetupPanel
+            apiKey={appleReveal.apiKey}
+            webhookUrl={appleReveal.webhookUrl}
+            onClose={() => setAppleReveal(null)}
+          />
+        ) : null}
       </div>
 
       <div className="pt-3">
@@ -75,7 +105,12 @@ export function StepIntegrations({ state, setState, refreshUser }: StepRenderPro
         </p>
         <div className="grid gap-2 sm:grid-cols-2">
           {cardOptions
-            .filter((c) => c.key !== "calendar" && c.key !== "ticktick")
+            .filter(
+              (c) =>
+                c.key !== "calendar" &&
+                c.key !== "ticktick" &&
+                c.key !== "health",
+            )
             .map((c) => (
               <CardToggle
                 key={c.key}

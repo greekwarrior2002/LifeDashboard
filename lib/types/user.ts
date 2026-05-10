@@ -28,7 +28,7 @@ export type UserHealth = {
   habits: string[];
 };
 
-export type IntegrationProvider = "google" | "ticktick";
+export type IntegrationProvider = "google" | "ticktick" | "apple_health";
 
 export type EncryptedTokens = {
   ciphertext: string;
@@ -39,6 +39,9 @@ export type IntegrationRecord = {
   encryptedTokens: EncryptedTokens;
   scope?: string;
   connectedAt: string;
+  // SHA-256 hex of the API key (only used by webhook auth; lets the ingest
+  // route compare without decrypting on every request).
+  apiKeyFingerprint?: string;
 };
 
 export type UserState = {
