@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-auth";
+import { getOAuthRedirectBaseUrl } from "@/lib/integrations/oauth-config";
 import {
   OAUTH_STATE_COOKIE_PREFIX,
   verifyStateToken,
@@ -20,7 +21,7 @@ function popupResponse(status: "ok" | "error", message?: string) {
         }
       } catch (e) {}
       window.close();
-      document.body.innerText = ${JSON.stringify(status === "ok" ? "Connected — you can close this window." : "Connection failed: " + (message ?? "unknown") + ". You can close this window.")};
+      document.body.innerText = ${JSON.stringify(status === "ok" ? "Connected - you can close this window." : "Connection failed: " + (message ?? "unknown") + ". You can close this window.")};
     })();
   </script></body></html>`;
   return new NextResponse(body, {
@@ -48,7 +49,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const tokens = await exchangeGoogleCode(code);
+    const redirectBaseUrl = getOAuthRedirectBaseUrl(req);
+    const tokens = await exchangeGoogleCode(code, redirectBaseUrl);
     await persistGoogleTokens(auth.secret, tokens);
   } catch (err) {
     return popupResponse("error", (err as Error).message);
