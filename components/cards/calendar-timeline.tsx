@@ -7,6 +7,13 @@ import { Calendar as CalendarIcon, Dot, Loader2, MapPin, Plug } from "lucide-rea
 import { GlassCard, CardHeader } from "@/components/ui/glass-card";
 import { cn } from "@/lib/utils";
 
+type RangeKey = "day" | "week" | "month";
+const RANGES: Array<{ key: RangeKey; label: string }> = [
+  { key: "day", label: "Day" },
+  { key: "week", label: "Week" },
+  { key: "month", label: "Month" },
+];
+
 const colorMap: Record<string, { bar: string; dot: string; bg: string }> = {
   blue: { bar: "from-neon-blue to-neon-cyan", dot: "bg-neon-blue", bg: "bg-neon-blue/10" },
   violet: { bar: "from-neon-violet to-neon-blue", dot: "bg-neon-violet", bg: "bg-neon-violet/10" },
@@ -48,6 +55,7 @@ function fmtTime(iso: string) {
 export function CalendarTimeline() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState<RangeKey>("day");
 
   useEffect(() => {
     let cancelled = false;
@@ -85,8 +93,37 @@ export function CalendarTimeline() {
     return d.getHours() * 60 + d.getMinutes();
   })();
 
-  const events = data?.events ?? [];
+  const allEvents = data?.events ?? [];
   const connected = data?.connected ?? false;
+
+  const rangeBounds = useMemo(() => {
+    const now = new Date();
+    const startOfDay = new Date(now);
+    startOfDay.setHours(0, 0, 0, 0);
+    if (range === "day") {
+      const end = new Date(startOfDay);
+      end.setDate(end.getDate() + 1);
+      return { start: startOfDay, end };
+    }
+    if (range === "week") {
+      const end = new Date(startOfDay);
+      end.setDate(end.getDate() + 7);
+      return { start: startOfDay, end };
+    }
+    const end = new Date(startOfDay);
+    end.setMonth(end.getMonth() + 1);
+    return { start: startOfDay, end };
+  }, [range]);
+
+  const events = useMemo(
+    () =>
+      allEvents.filter((e) => {
+        const s = new Date(e.start).getTime();
+        return s >= rangeBounds.start.getTime() && s < rangeBounds.end.getTime();
+      }),
+    [allEvents, rangeBounds],
+  );
+
   const subtitle = !connected
     ? "Google Calendar — not connected"
     : `Google Calendar · ${events.length} ${events.length === 1 ? "event" : "events"}`;
@@ -99,15 +136,19 @@ export function CalendarTimeline() {
         icon={<CalendarIcon className="h-4 w-4 text-neon-blue" />}
         right={
           <div className="flex items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.02] p-0.5 text-[11px]">
-            {["Day", "Week", "Month"].map((v, i) => (
+            {RANGES.map((r) => (
               <button
-                key={v}
+                key={r.key}
+                type="button"
+                onClick={() => setRange(r.key)}
                 className={cn(
                   "rounded px-2 py-0.5 transition-colors",
-                  i === 0 ? "bg-white/[0.06] text-white" : "text-muted hover:text-white",
+                  range === r.key
+                    ? "bg-white/[0.06] text-white"
+                    : "text-muted hover:text-white",
                 )}
               >
-                {v}
+                {r.label}
               </button>
             ))}
           </div>
@@ -124,7 +165,18 @@ export function CalendarTimeline() {
           body="Connect it from Settings to see today's events here."
         />
       ) : events.length === 0 ? (
-        <EmptyState title="Nothing scheduled today" body="Enjoy the open space." />
+        <EmptyState
+          title={
+            range === "day"
+              ? "Nothing scheduled today"
+              : range === "week"
+                ? "Nothing scheduled this week"
+                : "Nothing scheduled this month"
+          }
+          body="Enjoy the open space."
+        />
+      ) : range !== "day" ? (
+        <EventList events={events} />
       ) : (
         <div className="mt-5 grid grid-cols-[48px_1fr] gap-3">
           {/* Hour rail */}
@@ -213,6 +265,57 @@ export function CalendarTimeline() {
         </div>
       )}
     </GlassCard>
+  );
+}
+
+function EventList({ events }: { events: ApiEvent[] }) {
+  const groups = useMemo(() => {
+    const map = new Map<string, ApiEvent[]>();
+    for (const e of events) {
+      const d = new Date(e.start);
+      const key = d.toDateString();
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(e);
+    }
+    return Array.from(map.entries()).map(([key, items]) => ({
+      key,
+      label: new Date(key).toLocaleDateString(undefined, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      }),
+      items,
+    }));
+  }, [events]);
+
+  return (
+    <div className="mt-5 max-h-[440px] space-y-3 overflow-y-auto pr-1">
+      {groups.map((g) => (
+        <div key={g.key}>
+          <p className="px-1 pb-1.5 text-[10px] font-medium uppercase tracking-[0.18em] text-muted">
+            {g.label}
+          </p>
+          <div className="space-y-1.5">
+            {g.items.map((e) => (
+              <div
+                key={e.id}
+                className="flex items-center gap-3 rounded-lg border border-white/[0.05] bg-white/[0.015] px-3 py-2"
+              >
+                <span className="font-mono text-[11px] text-subtle">
+                  {fmtTime(e.start)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] text-white">{e.title}</p>
+                  {e.location ? (
+                    <p className="truncate text-[11px] text-muted">{e.location}</p>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 

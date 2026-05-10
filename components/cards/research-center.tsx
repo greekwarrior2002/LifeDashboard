@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { FlaskConical, ChevronRight, Calendar } from "lucide-react";
 import { GlassCard, CardHeader } from "@/components/ui/glass-card";
@@ -20,9 +21,12 @@ export function ResearchCenter() {
         subtitle="3 active projects · 1 manuscript in review"
         icon={<FlaskConical className="h-4 w-4 text-neon-violet" />}
         right={
-          <button className="flex h-7 items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.02] px-2 text-[11px] text-subtle hover:text-white">
+          <Link
+            href="/research"
+            className="flex h-7 items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.02] px-2 text-[11px] text-subtle transition-colors hover:text-white"
+          >
             View all <ChevronRight className="h-3 w-3" />
-          </button>
+          </Link>
         }
       />
 

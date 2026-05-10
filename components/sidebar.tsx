@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Home,
@@ -18,6 +19,8 @@ import {
   Settings,
   Command,
   LogOut,
+  Search,
+  X,
 } from "lucide-react";
 import { useUser } from "@/lib/hooks/use-user";
 import { cn } from "@/lib/utils";
@@ -47,10 +50,16 @@ function initials(name: string): string {
 export function Sidebar() {
   const path = usePathname();
   const { user } = useUser();
+  const [query, setQuery] = useState("");
   const name = user?.profile.name?.trim() || "Welcome";
   const subtitle =
     [user?.profile.program, user?.profile.cycle].filter(Boolean).join(" · ") ||
     "Set up your profile";
+
+  const q = query.trim().toLowerCase();
+  const visibleItems = q
+    ? items.filter((i) => i.label.toLowerCase().includes(q))
+    : items;
   return (
     <aside className="sticky top-0 z-30 hidden h-screen w-[248px] shrink-0 flex-col border-r border-white/[0.05] bg-ink-950/70 px-4 py-6 backdrop-blur-xl lg:flex">
       <div className="flex items-center gap-2.5 px-2">
@@ -65,9 +74,25 @@ export function Sidebar() {
       </div>
 
       <div className="mt-6 px-2">
-        <div className="flex h-9 items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 text-[12px] text-muted">
-          <span className="opacity-60">⌘</span>K
-          <span className="ml-1">Search anything</span>
+        <div className="flex h-9 items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 text-[12px] text-muted focus-within:border-white/[0.14]">
+          <Search className="h-3.5 w-3.5" />
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search workspace…"
+            className="h-full flex-1 bg-transparent text-[12px] text-white placeholder:text-muted focus:outline-none"
+          />
+          {query ? (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              className="text-muted hover:text-white"
+              aria-label="Clear search"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -75,7 +100,10 @@ export function Sidebar() {
         <p className="px-3 pb-1 pt-3 text-[10px] font-medium uppercase tracking-[0.18em] text-muted">
           Workspace
         </p>
-        {items.map((item, i) => {
+        {visibleItems.length === 0 ? (
+          <p className="px-3 py-2 text-[11px] text-muted">No matches.</p>
+        ) : null}
+        {visibleItems.map((item, i) => {
           const Active = path === item.href;
           const Icon = item.icon;
           return (
