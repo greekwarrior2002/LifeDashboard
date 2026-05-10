@@ -4,12 +4,20 @@ import { getUser, toPublic, updateUser } from "@/lib/user-store";
 import type { UserState } from "@/lib/types/user";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
-  const user = await getUser();
-  return NextResponse.json(toPublic(user));
+  try {
+    const user = await getUser();
+    return NextResponse.json(toPublic(user));
+  } catch (err) {
+    return NextResponse.json(
+      { error: "read_failed", detail: (err as Error).message },
+      { status: 500 },
+    );
+  }
 }
 
 type Patch = {
@@ -30,13 +38,21 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
 
-  const next = await updateUser((cur) => ({
-    ...cur,
-    profile: { ...cur.profile, ...(body.profile ?? {}) },
-    goals: { ...cur.goals, ...(body.goals ?? {}) },
-    visibleCards: { ...cur.visibleCards, ...(body.visibleCards ?? {}) },
-    health: { ...cur.health, ...(body.health ?? {}) },
-  }));
-
-  return NextResponse.json(toPublic(next));
+  try {
+    const next = await updateUser((cur) => ({
+      ...cur,
+      profile: { ...cur.profile, ...(body.profile ?? {}) },
+      goals: { ...cur.goals, ...(body.goals ?? {}) },
+      visibleCards: { ...cur.visibleCards, ...(body.visibleCards ?? {}) },
+      health: { ...cur.health, ...(body.health ?? {}) },
+    }));
+    return NextResponse.json(toPublic(next));
+  } catch (err) {
+    const detail = (err as Error).message;
+    console.error("[/api/user] write failed:", detail);
+    return NextResponse.json(
+      { error: "write_failed", detail },
+      { status: 500 },
+    );
+  }
 }

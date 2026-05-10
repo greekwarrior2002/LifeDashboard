@@ -128,12 +128,21 @@ export function OnboardingWizard({
         }),
       });
       if (!res.ok) {
-        setError("Couldn't save — please try again.");
+        let detail = "";
+        try {
+          const j = (await res.json()) as { error?: string; detail?: string };
+          detail = j.detail || j.error || "";
+        } catch {}
+        setError(
+          detail
+            ? `Couldn't save (${detail}).`
+            : `Couldn't save (HTTP ${res.status}).`,
+        );
         return false;
       }
       return true;
-    } catch {
-      setError("Network error — please try again.");
+    } catch (err) {
+      setError(`Network error — ${(err as Error).message}`);
       return false;
     }
   };
@@ -152,7 +161,16 @@ export function OnboardingWizard({
     const res = await fetch("/api/user/complete-onboarding", { method: "POST" });
     setSubmitting(false);
     if (!res.ok) {
-      setError("Couldn't complete onboarding. Try again.");
+      let detail = "";
+      try {
+        const j = (await res.json()) as { error?: string; detail?: string };
+        detail = j.detail || j.error || "";
+      } catch {}
+      setError(
+        detail
+          ? `Couldn't complete onboarding (${detail}).`
+          : `Couldn't complete onboarding (HTTP ${res.status}).`,
+      );
       return;
     }
     try {
