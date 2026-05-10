@@ -19,6 +19,7 @@ import {
   Command,
   LogOut,
 } from "lucide-react";
+import { useUser } from "@/lib/hooks/use-user";
 import { cn } from "@/lib/utils";
 
 const items = [
@@ -36,8 +37,20 @@ const items = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "·";
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
+}
+
 export function Sidebar() {
   const path = usePathname();
+  const { user } = useUser();
+  const name = user?.profile.name?.trim() || "Welcome";
+  const subtitle =
+    [user?.profile.program, user?.profile.cycle].filter(Boolean).join(" · ") ||
+    "Set up your profile";
   return (
     <aside className="sticky top-0 z-30 hidden h-screen w-[248px] shrink-0 flex-col border-r border-white/[0.05] bg-ink-950/70 px-4 py-6 backdrop-blur-xl lg:flex">
       <div className="flex items-center gap-2.5 px-2">
@@ -112,11 +125,11 @@ export function Sidebar() {
       <div className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-neon-blue to-neon-violet text-xs font-semibold text-white">
-            DM
+            {initials(name)}
           </div>
-          <div className="leading-tight">
-            <p className="text-[13px] font-semibold text-white">Damian M.</p>
-            <p className="text-[11px] text-muted">MSc · Med Apps · TA</p>
+          <div className="min-w-0 leading-tight">
+            <p className="truncate text-[13px] font-semibold text-white">{name}</p>
+            <p className="truncate text-[11px] text-muted">{subtitle}</p>
           </div>
           <form method="POST" action="/api/auth/logout" className="ml-auto">
             <button

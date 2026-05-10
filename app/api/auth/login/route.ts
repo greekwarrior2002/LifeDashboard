@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE, SESSION_TTL, safeEqual, signSession } from "@/lib/auth";
+import { getUser } from "@/lib/user-store";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   const secret = process.env.LIFEOS_AUTH_SECRET;
@@ -29,9 +30,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.redirect(url, { status: 303 });
   }
 
-  const token = await signSession(secret);
+  const user = await getUser();
+  const onboarded = !!user.onboardingCompletedAt;
+  const token = await signSession(secret, { onboarded });
+
   const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/";
-  const dest = new URL(safeNext, req.nextUrl.origin);
+  const dest = new URL(onboarded ? safeNext : "/onboarding", req.nextUrl.origin);
   const res = NextResponse.redirect(dest, { status: 303 });
   res.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,

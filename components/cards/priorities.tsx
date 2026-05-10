@@ -1,25 +1,50 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion, Reorder } from "framer-motion";
 import { Check, Flame, GripVertical, Plus, Sparkles } from "lucide-react";
 import { GlassCard, CardHeader } from "@/components/ui/glass-card";
-import { todaysPriorities, type Task } from "@/lib/mock-data";
+import { useUser } from "@/lib/hooks/use-user";
 import { cn } from "@/lib/utils";
 
-const priorityTone: Record<string, string> = {
-  P1: "text-neon-rose border-neon-rose/30 bg-neon-rose/10",
-  P2: "text-neon-amber border-neon-amber/30 bg-neon-amber/10",
-  P3: "text-neon-blue border-neon-blue/30 bg-neon-blue/10",
-};
+type Item = { id: string; title: string; done: boolean };
 
 export function PrioritiesCard() {
-  const [tasks, setTasks] = useState<Task[]>(todaysPriorities);
+  const { user } = useUser();
+  const [tasks, setTasks] = useState<Item[]>([]);
+  const [adding, setAdding] = useState("");
 
-  const toggle = (id: string) =>
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
-    );
+  useEffect(() => {
+    if (!user) return;
+    const items = (user.goals.priorities ?? [])
+      .filter((p) => p.trim().length > 0)
+      .map((p, i) => ({ id: `p${i}`, title: p, done: false }));
+    setTasks(items);
+  }, [user]);
+
+  const persist = async (next: Item[]) => {
+    setTasks(next);
+    await fetch("/api/user", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        goals: { priorities: next.filter((t) => !t.done).map((t) => t.title) },
+      }),
+    });
+  };
+
+  const toggle = (id: string) => {
+    const next = tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t));
+    setTasks(next);
+  };
+
+  const add = async () => {
+    const title = adding.trim();
+    if (!title) return;
+    const next = [...tasks, { id: `n${Date.now()}`, title, done: false }];
+    setAdding("");
+    await persist(next);
+  };
 
   const completed = tasks.filter((t) => t.done).length;
 
@@ -27,24 +52,28 @@ export function PrioritiesCard() {
     <GlassCard glow="blue" className="p-5">
       <CardHeader
         title="Today's Priorities"
-        subtitle={`${tasks.length - completed} open · ${completed} done · drag to reorder`}
-        icon={<Flame className="h-4 w-4 text-neon-amber" />}
-        right={
-          <button className="flex h-7 items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.02] px-2 text-[11px] text-subtle transition-colors hover:bg-white/[0.05] hover:text-white">
-            <Plus className="h-3 w-3" /> New
-          </button>
+        subtitle={
+          tasks.length === 0
+            ? "No priorities set — add some below"
+            : `${tasks.length - completed} open · ${completed} done · drag to reorder`
         }
+        icon={<Flame className="h-4 w-4 text-neon-amber" />}
       />
 
-      <div className="mt-4 flex items-center gap-2 rounded-lg border border-neon-violet/20 bg-neon-violet/[0.06] px-3 py-2 text-[12px] text-subtle">
-        <Sparkles className="h-3.5 w-3.5 text-neon-violet" />
-        AI: <span className="text-white">Thesis Methods</span> is your highest-leverage block today.
-      </div>
+      {user?.goals.focusAreas && user.goals.focusAreas.length > 0 ? (
+        <div className="mt-4 flex items-center gap-2 rounded-lg border border-neon-violet/20 bg-neon-violet/[0.06] px-3 py-2 text-[12px] text-subtle">
+          <Sparkles className="h-3.5 w-3.5 text-neon-violet" />
+          Focus:{" "}
+          <span className="text-white">
+            {user.goals.focusAreas.join(" · ")}
+          </span>
+        </div>
+      ) : null}
 
       <Reorder.Group
         axis="y"
         values={tasks}
-        onReorder={setTasks}
+        onReorder={(next) => void persist(next)}
         className="mt-3 space-y-1.5"
       >
         <AnimatePresence>
@@ -77,31 +106,32 @@ export function PrioritiesCard() {
                 >
                   {task.title}
                 </p>
-                <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted">
-                  <span>{task.project}</span>
-                  <span>·</span>
-                  <span>{task.due}</span>
-                  {task.estMinutes ? (
-                    <>
-                      <span>·</span>
-                      <span>{task.estMinutes}m</span>
-                    </>
-                  ) : null}
-                </div>
               </div>
-
-              <span
-                className={cn(
-                  "rounded-md border px-1.5 py-0.5 text-[10px] font-semibold tracking-wider",
-                  priorityTone[task.priority],
-                )}
-              >
-                {task.priority}
-              </span>
             </Reorder.Item>
           ))}
         </AnimatePresence>
       </Reorder.Group>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void add();
+        }}
+        className="mt-3 flex items-center gap-2"
+      >
+        <input
+          value={adding}
+          onChange={(e) => setAdding(e.target.value)}
+          placeholder="Add a priority…"
+          className="h-9 flex-1 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 text-[12px] text-white placeholder:text-muted focus:border-neon-blue/40 focus:outline-none"
+        />
+        <button
+          type="submit"
+          className="flex h-9 items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.02] px-2.5 text-[11px] text-subtle transition-colors hover:bg-white/[0.05] hover:text-white"
+        >
+          <Plus className="h-3 w-3" /> Add
+        </button>
+      </form>
     </GlassCard>
   );
 }

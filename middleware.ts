@@ -13,17 +13,36 @@ export async function middleware(req: NextRequest) {
   }
 
   const token = req.cookies.get(SESSION_COOKIE)?.value;
-  const ok = await verifySession(secret, token);
-  if (ok) return NextResponse.next();
+  const session = await verifySession(secret, token);
 
-  const url = req.nextUrl.clone();
-  url.pathname = "/login";
-  if (req.nextUrl.pathname !== "/") {
-    url.searchParams.set("next", req.nextUrl.pathname);
+  if (!session) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/login";
+    if (req.nextUrl.pathname !== "/") {
+      url.searchParams.set("next", req.nextUrl.pathname);
+    }
+    return NextResponse.redirect(url);
   }
-  return NextResponse.redirect(url);
+
+  const isOnboardingPath = req.nextUrl.pathname.startsWith("/onboarding");
+
+  if (!session.onboarded && !isOnboardingPath) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/onboarding";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
+  if (session.onboarded && isOnboardingPath) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/((?!_next/|favicon.ico|login|api/auth/).*)"],
+  matcher: ["/((?!_next/|favicon.ico|login|api/).*)"],
 };
