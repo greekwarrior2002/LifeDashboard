@@ -10,8 +10,8 @@ export default function CalendarPage() {
         title="Today"
         description="Google Calendar — events show with the blue current-time indicator."
       />
-      <div className="grid gap-5 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      <div className="grid gap-5 md:grid-cols-3">
+        <div className="md:col-span-2">
           <CalendarTimeline />
         </div>
         <UpNextCard />

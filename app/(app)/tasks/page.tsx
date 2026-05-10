@@ -10,7 +10,7 @@ export default function TasksPage() {
         title="What matters today"
         description="TickTick-synced task workspace with AI prioritization, overload detection, and deep-work suggestions."
       />
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-5 md:grid-cols-2">
         <PrioritiesCard />
         <TickTickPanel />
       </div>

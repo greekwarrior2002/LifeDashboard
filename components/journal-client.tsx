@@ -117,7 +117,7 @@ export function JournalClient({ sampleEntries }: { sampleEntries: SampleEntry[] 
                 type="button"
                 onClick={() => setMood(n)}
                 className={cn(
-                  "h-7 w-7 rounded-md border text-[11px] transition-colors",
+                  "h-10 w-10 rounded-md border text-[13px] transition-colors sm:h-7 sm:w-7 sm:text-[11px]",
                   mood === n
                     ? "border-neon-blue/40 bg-neon-blue/15 text-white"
                     : "border-white/[0.06] bg-white/[0.02] text-subtle hover:bg-white/[0.06] hover:text-white",
@@ -132,7 +132,7 @@ export function JournalClient({ sampleEntries }: { sampleEntries: SampleEntry[] 
             onClick={save}
             disabled={!canSave}
             className={cn(
-              "rounded-lg border border-neon-blue/30 bg-gradient-to-r from-neon-blue/15 to-neon-violet/15 px-3 py-1.5 text-[12px] text-white shadow-glow transition-transform",
+              "h-11 rounded-lg border border-neon-blue/30 bg-gradient-to-r from-neon-blue/15 to-neon-violet/15 px-4 text-[13px] text-white shadow-glow transition-transform sm:h-auto sm:px-3 sm:py-1.5 sm:text-[12px]",
               canSave ? "hover:scale-[1.02]" : "cursor-not-allowed opacity-50",
             )}
           >

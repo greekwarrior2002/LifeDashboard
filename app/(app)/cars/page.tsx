@@ -13,7 +13,7 @@ export default function CarsPage() {
       />
       <CarDashboard />
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-5 md:grid-cols-2">
         {cars.map((c) => (
           <GlassCard key={c.id} glow="amber" className="p-5">
             <CardHeader title={c.name} subtitle="Full service log" />

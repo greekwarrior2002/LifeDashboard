@@ -20,7 +20,7 @@ export default function FinancePage() {
         description="Stipend, TA payments, grading income — tracked alongside conference, gas, food, and savings goals."
       />
       <FinancialDashboard />
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-5 md:grid-cols-2">
         <GlassCard glow="violet" className="p-5">
           <CardHeader title="Subscriptions" subtitle="Recurring · this month" />
           <div className="mt-4 space-y-1.5">

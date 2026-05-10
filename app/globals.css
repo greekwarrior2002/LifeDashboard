@@ -73,6 +73,15 @@
   mix-blend-mode: overlay;
 }
 
+/* Prevent iOS Safari from auto-zooming when focusing inputs (any font-size <16px triggers zoom). */
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 .shimmer-text {
   background: linear-gradient(
     90deg,

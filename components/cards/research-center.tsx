@@ -83,7 +83,7 @@ export function ResearchCenter() {
                   </div>
                   <span
                     className={cn(
-                      "text-[10px] tracking-wide",
+                      "hidden truncate text-[10px] tracking-wide sm:inline",
                       step.current
                         ? "text-white"
                         : step.done

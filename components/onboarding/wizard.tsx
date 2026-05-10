@@ -226,7 +226,7 @@ export function OnboardingWizard({
             onClick={back}
             disabled={stepIndex === 0 || submitting}
             className={cn(
-              "flex h-10 items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 text-[12px] text-subtle transition-colors hover:text-white",
+              "flex h-11 items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.02] px-3 text-[12px] text-subtle transition-colors hover:text-white",
               (stepIndex === 0 || submitting) &&
                 "cursor-not-allowed opacity-40 hover:text-subtle",
             )}
@@ -240,7 +240,7 @@ export function OnboardingWizard({
             onClick={next}
             disabled={submitting}
             className={cn(
-              "flex h-10 items-center gap-1.5 rounded-xl border border-neon-blue/30 bg-gradient-to-r from-neon-blue/20 to-neon-violet/20 px-4 text-[13px] font-medium text-white shadow-glow transition-transform",
+              "flex h-11 items-center gap-1.5 rounded-xl border border-neon-blue/30 bg-gradient-to-r from-neon-blue/20 to-neon-violet/20 px-4 text-[13px] font-medium text-white shadow-glow transition-transform",
               !submitting && "hover:scale-[1.01]",
               submitting && "opacity-60",
             )}
