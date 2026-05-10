@@ -21,8 +21,9 @@ type StoredGoogleTokens = {
 
 export async function exchangeGoogleCode(
   code: string,
+  redirectBaseUrl?: string,
 ): Promise<StoredGoogleTokens> {
-  const config = getProviderConfig("google");
+  const config = getProviderConfig("google", redirectBaseUrl);
   if (!config) throw new Error("google_not_configured");
 
   const body = new URLSearchParams({
