@@ -23,7 +23,7 @@ type ApiResponse = {
   error?: string;
 };
 
-const tabKeys = ["today", "overdue", "inbox", "all"] as const;
+const tabKeys = ["today", "overdue", "unscheduled", "all"] as const;
 type TabKey = (typeof tabKeys)[number];
 
 function isToday(d: Date): boolean {
@@ -40,24 +40,24 @@ function bucketTasks(tasks: TickTickTask[]) {
   const open = tasks.filter((t) => t.status !== 2);
   const today: TickTickTask[] = [];
   const overdue: TickTickTask[] = [];
-  const inbox: TickTickTask[] = [];
+  const unscheduled: TickTickTask[] = [];
   for (const t of open) {
     if (!t.dueDate) {
-      inbox.push(t);
+      unscheduled.push(t);
       continue;
     }
     const d = new Date(t.dueDate);
     if (Number.isNaN(d.getTime())) {
-      inbox.push(t);
+      unscheduled.push(t);
     } else if (d < now && !isToday(d)) {
       overdue.push(t);
     } else if (isToday(d)) {
       today.push(t);
     } else {
-      inbox.push(t);
+      unscheduled.push(t);
     }
   }
-  return { today, overdue, inbox, all: open };
+  return { today, overdue, unscheduled, all: open };
 }
 
 function dueLabel(t: TickTickTask): string {
@@ -107,7 +107,7 @@ export function TickTickPanel() {
   const tabs: Array<{ key: TabKey; label: string; count: number }> = [
     { key: "today", label: "Today", count: buckets.today.length },
     { key: "overdue", label: "Overdue", count: buckets.overdue.length },
-    { key: "inbox", label: "Inbox", count: buckets.inbox.length },
+    { key: "unscheduled", label: "No due", count: buckets.unscheduled.length },
     { key: "all", label: "All", count: buckets.all.length },
   ];
 
@@ -185,6 +185,11 @@ export function TickTickPanel() {
               </button>
             ))}
           </div>
+          <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
+            TickTick's Open API returns project task data. The special TickTick
+            Inbox may not be exposed by the public API, so this tab shows open
+            tasks without a due date from readable projects.
+          </p>
 
           <div className="mt-3 flex-1 space-y-1.5 overflow-y-auto pr-1">
             {visible.length === 0 ? (

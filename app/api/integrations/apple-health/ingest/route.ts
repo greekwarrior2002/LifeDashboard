@@ -66,7 +66,11 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
-  if (!payload || typeof payload !== "object" || !payload.data) {
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    (!payload.data && !payload.metrics && !payload.workouts)
+  ) {
     return NextResponse.json({ error: "invalid_payload" }, { status: 400 });
   }
 
@@ -74,6 +78,20 @@ export async function POST(req: NextRequest) {
   const timezone = user.profile.timezone || "UTC";
 
   const result = parseHAEPayload(payload, timezone);
+  if (result.samples === 0) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "no_supported_samples",
+        detail:
+          "The request authenticated, but no supported Health Auto Export samples were found. Enable JSON export for sleep_analysis, heart_rate_variability, resting_heart_rate, step_count, active_energy, apple_exercise_time, and workouts.",
+        metrics: result.metrics,
+        samples: result.samples,
+        days: result.days.length,
+      },
+      { status: 422 },
+    );
+  }
   await ingestRollups(result.days, {
     at: new Date().toISOString(),
     metrics: result.metrics,

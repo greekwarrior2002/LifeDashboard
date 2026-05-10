@@ -6,11 +6,17 @@ import type { DayRollup, SleepDay, WorkoutSample } from "@/lib/types/health";
 
 export type HAEMetricSample = {
   date?: string;
+  startDate?: string;
+  endDate?: string;
   // Sleep samples
   sleepStart?: string;
   sleepEnd?: string;
+  inBedStart?: string;
+  inBedEnd?: string;
   inBed?: number;
   asleep?: number;
+  totalSleep?: number;
+  value?: string;
   source?: string;
   // Most numeric metrics
   qty?: number;
@@ -39,6 +45,8 @@ export type HAEPayload = {
     metrics?: HAEMetric[];
     workouts?: HAEWorkout[];
   };
+  metrics?: HAEMetric[];
+  workouts?: HAEWorkout[];
 };
 
 // --- Date parsing -----------------------------------------------------------
@@ -126,6 +134,7 @@ function bucket(byDate: Map<string, Bucket>, key: string): Bucket {
 function sampleValue(s: HAEMetricSample): number | null {
   if (typeof s.qty === "number") return s.qty;
   if (typeof s.Avg === "number") return s.Avg;
+  if (typeof s.totalSleep === "number") return s.totalSleep;
   return null;
 }
 
@@ -139,15 +148,28 @@ function handleMetric(
   switch (metric.name) {
     case "sleep_analysis": {
       for (const s of metric.data) {
-        const start = parseHAEDate(s.sleepStart) ?? parseHAEDate(s.date);
-        const end = parseHAEDate(s.sleepEnd);
+        const start =
+          parseHAEDate(s.sleepStart) ??
+          parseHAEDate(s.inBedStart) ??
+          parseHAEDate(s.startDate) ??
+          parseHAEDate(s.date);
+        const end =
+          parseHAEDate(s.sleepEnd) ??
+          parseHAEDate(s.inBedEnd) ??
+          parseHAEDate(s.endDate);
         if (!start || !end) continue;
         // Attribute the sleep block to the wake date.
         const key = localDateKey(end, timezone);
+        const asleep =
+          typeof s.asleep === "number"
+            ? s.asleep
+            : typeof s.totalSleep === "number"
+              ? s.totalSleep
+              : (end.getTime() - start.getTime()) / 3_600_000;
         const b = bucket(byDate, key);
         b.sleepBlocks.push({
-          inBedHours: typeof s.inBed === "number" ? s.inBed : (end.getTime() - start.getTime()) / 3_600_000,
-          asleepHours: typeof s.asleep === "number" ? s.asleep : (end.getTime() - start.getTime()) / 3_600_000,
+          inBedHours: typeof s.inBed === "number" ? s.inBed : asleep,
+          asleepHours: asleep,
           bedTime: localClockHours(start, timezone),
           wakeTime: localClockHours(end, timezone),
           sources: s.source ? [s.source] : undefined,
@@ -269,7 +291,7 @@ export function parseHAEPayload(
   timezone: string,
 ): ParseResult {
   const byDate = new Map<string, Bucket>();
-  const metrics = payload.data?.metrics ?? [];
+  const metrics = payload.data?.metrics ?? payload.metrics ?? [];
   let totalSamples = 0;
   let metricCount = 0;
 
@@ -292,7 +314,8 @@ export function parseHAEPayload(
     }
   }
 
-  for (const w of payload.data?.workouts ?? []) {
+  const workouts = payload.data?.workouts ?? payload.workouts ?? [];
+  for (const w of workouts) {
     const start = parseHAEDate(w.start);
     const end = parseHAEDate(w.end);
     if (!start || !end) continue;
@@ -308,7 +331,7 @@ export function parseHAEPayload(
     });
     totalSamples++;
   }
-  if ((payload.data?.workouts ?? []).length > 0) metricCount++;
+  if (workouts.length > 0) metricCount++;
 
   const days: DayRollup[] = [];
   for (const b of byDate.values()) {
