@@ -16,7 +16,7 @@ import {
 function resolveDataDir(): string {
   const override = process.env.LIFEOS_DATA_DIR;
   if (override && override.length > 0) return override;
-  // Vercel / serverless: only /tmp is writable. Note this is ephemeral —
+  // Vercel / serverless: only /tmp is writable. Note this is ephemeral -
   // configure a real persistent store (Vercel Blob, KV, or LIFEOS_DATA_DIR
   // pointing at a mounted volume) for durable state.
   if (process.env.VERCEL) return "/tmp/lifeos";
@@ -28,9 +28,13 @@ const FILE_PATH = path.join(DATA_DIR, "user.json");
 
 // Cookie-backed copy of the per-user state. Survives Vercel /tmp eviction
 // (which would otherwise drop the onboarding profile between requests).
-// Integrations are NOT stored here — they can hold encrypted token blobs
-// that are too large for cookies and webhook ingestion needs file lookup.
 const STATE_COOKIE = "lifeos_state_v1";
+const INTEGRATION_COOKIE_PREFIX = "lifeos_integration_v1_";
+const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
+  "google",
+  "ticktick",
+  "apple_health",
+];
 const STATE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 const COOKIE_BYTE_BUDGET = 3800;
 
@@ -52,36 +56,92 @@ function toCookieState(state: UserState): CookieState {
   };
 }
 
-function readCookieState(): Partial<CookieState> | null {
+function encodeCookieJSON(value: unknown): string | null {
+  const encoded = Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
+  return encoded.length <= COOKIE_BYTE_BUDGET ? encoded : null;
+}
+
+function decodeCookieJSON<T>(value: string | undefined): T | null {
+  if (!value) return null;
   try {
-    const value = cookies().get(STATE_COOKIE)?.value;
-    if (!value) return null;
     const json = Buffer.from(value, "base64url").toString("utf8");
     const parsed = JSON.parse(json);
-    if (parsed && typeof parsed === "object") return parsed as Partial<CookieState>;
+    if (parsed && typeof parsed === "object") return parsed as T;
     return null;
   } catch {
     return null;
   }
 }
 
+function readCookieState(): Partial<CookieState> | null {
+  return decodeCookieJSON<Partial<CookieState>>(cookies().get(STATE_COOKIE)?.value);
+}
+
+function writeCookieValue(name: string, value: string): void {
+  cookies().set(name, value, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: STATE_COOKIE_MAX_AGE,
+  });
+}
+
+function clearCookieValue(name: string): void {
+  cookies().set(name, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+}
+
 function writeCookieState(state: UserState): void {
   try {
-    const encoded = Buffer.from(
-      JSON.stringify(toCookieState(state)),
-      "utf8",
-    ).toString("base64url");
-    if (encoded.length > COOKIE_BYTE_BUDGET) return;
-    cookies().set(STATE_COOKIE, encoded, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: STATE_COOKIE_MAX_AGE,
-    });
+    const encoded = encodeCookieJSON(toCookieState(state));
+    if (!encoded) return;
+    writeCookieValue(STATE_COOKIE, encoded);
   } catch {
-    // cookies().set throws outside route handlers / server actions — that's
+    // cookies().set throws outside route handlers / server actions - that's
     // fine, every write path here runs inside one.
+  }
+}
+
+function integrationCookieName(provider: IntegrationProvider): string {
+  return `${INTEGRATION_COOKIE_PREFIX}${provider}`;
+}
+
+function readIntegrationCookies(): Partial<Record<IntegrationProvider, IntegrationRecord>> {
+  const jar = cookies();
+  const integrations: Partial<Record<IntegrationProvider, IntegrationRecord>> = {};
+  for (const provider of INTEGRATION_PROVIDERS) {
+    const record = decodeCookieJSON<IntegrationRecord>(
+      jar.get(integrationCookieName(provider))?.value,
+    );
+    if (record?.encryptedTokens && record.connectedAt) {
+      integrations[provider] = record;
+    }
+  }
+  return integrations;
+}
+
+function writeIntegrationCookies(state: UserState): void {
+  try {
+    for (const provider of INTEGRATION_PROVIDERS) {
+      const record = state.integrations[provider];
+      const name = integrationCookieName(provider);
+      if (!record) {
+        clearCookieValue(name);
+        continue;
+      }
+
+      const encoded = encodeCookieJSON(record);
+      if (encoded) writeCookieValue(name, encoded);
+    }
+  } catch {
+    // Best effort: the file write remains the source of truth whenever the
+    // runtime has durable storage.
   }
 }
 
@@ -116,23 +176,27 @@ async function readFileState(): Promise<Partial<UserState> | null> {
 }
 
 export async function getUser(): Promise<UserState> {
-  // The cookie carries profile/goals/visibleCards/health and survives across
-  // Vercel lambda instances. The file holds integrations (and is the source
-  // of truth in dev or with a persistent LIFEOS_DATA_DIR). Layer cookie on
-  // top of file so cookie wins for the fields it stores.
+  // The cookies carry profile/goals/visibleCards/health plus per-provider
+  // encrypted integration records so Vercel lambda instance changes do not
+  // make a successful OAuth connection look disconnected.
   const fromFile = await readFileState();
   const fromCookie = readCookieState();
+  const fromIntegrationCookies = readIntegrationCookies();
   const merged: Partial<UserState> = {
     ...(fromFile ?? {}),
     ...(fromCookie ?? {}),
-    integrations: fromFile?.integrations ?? {},
+    integrations: {
+      ...(fromFile?.integrations ?? {}),
+      ...fromIntegrationCookies,
+    },
   };
   return mergeWithDefaults(merged);
 }
 
 async function writeUser(next: UserState): Promise<void> {
   // Best-effort file write: works in dev and with LIFEOS_DATA_DIR, may
-  // disappear between requests on Vercel /tmp — the cookie covers that.
+  // disappear between requests on Vercel /tmp - cookies cover single-user
+  // state and integrations for the deployed dashboard.
   try {
     await ensureDir();
     const tmp = `${FILE_PATH}.${process.pid}.${Date.now()}.tmp`;
@@ -144,12 +208,13 @@ async function writeUser(next: UserState): Promise<void> {
     }
   }
   writeCookieState(next);
+  writeIntegrationCookies(next);
 }
 
 export async function updateUser(
   patch: (current: UserState) => UserState,
 ): Promise<UserState> {
-  // Run inline — chained continuations would break the per-request
+  // Run inline - chained continuations would break the per-request
   // AsyncLocalStorage context that cookies() relies on.
   const current = await getUser();
   const next = patch(current);
