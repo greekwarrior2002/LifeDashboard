@@ -31,6 +31,7 @@ type ApiEvent = {
   start: string;
   end: string;
   location?: string;
+  calendarName?: string;
 };
 
 type ApiResponse = {
@@ -52,6 +53,26 @@ function fmtTime(iso: string) {
     .padStart(2, "0")}`;
 }
 
+function getRangeBounds(range: RangeKey) {
+  const now = new Date();
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  if (range === "day") end.setDate(end.getDate() + 1);
+  else if (range === "week") end.setDate(end.getDate() + 7);
+  else end.setMonth(end.getMonth() + 1);
+  return { start, end };
+}
+
+function eventsUrl(range: RangeKey): string {
+  const { start, end } = getRangeBounds(range);
+  const params = new URLSearchParams({
+    from: start.toISOString(),
+    to: end.toISOString(),
+  });
+  return `/api/integrations/google/events?${params.toString()}`;
+}
+
 export function CalendarTimeline() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -59,9 +80,10 @@ export function CalendarTimeline() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     (async () => {
       try {
-        const res = await fetch("/api/integrations/google/events", {
+        const res = await fetch(eventsUrl(range), {
           cache: "no-store",
         });
         const json = (await res.json()) as ApiResponse;
@@ -75,7 +97,7 @@ export function CalendarTimeline() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [range]);
 
   const startMin = 7 * 60;
   const endMin = 23 * 60;
@@ -93,40 +115,14 @@ export function CalendarTimeline() {
     return d.getHours() * 60 + d.getMinutes();
   })();
 
-  const allEvents = data?.events ?? [];
+  const events = data?.events ?? [];
   const connected = data?.connected ?? false;
 
-  const rangeBounds = useMemo(() => {
-    const now = new Date();
-    const startOfDay = new Date(now);
-    startOfDay.setHours(0, 0, 0, 0);
-    if (range === "day") {
-      const end = new Date(startOfDay);
-      end.setDate(end.getDate() + 1);
-      return { start: startOfDay, end };
-    }
-    if (range === "week") {
-      const end = new Date(startOfDay);
-      end.setDate(end.getDate() + 7);
-      return { start: startOfDay, end };
-    }
-    const end = new Date(startOfDay);
-    end.setMonth(end.getMonth() + 1);
-    return { start: startOfDay, end };
-  }, [range]);
-
-  const events = useMemo(
-    () =>
-      allEvents.filter((e) => {
-        const s = new Date(e.start).getTime();
-        return s >= rangeBounds.start.getTime() && s < rangeBounds.end.getTime();
-      }),
-    [allEvents, rangeBounds],
-  );
-
   const subtitle = !connected
-    ? "Google Calendar — not connected"
-    : `Google Calendar · ${events.length} ${events.length === 1 ? "event" : "events"}`;
+    ? "Google Calendar - not connected"
+    : data?.error
+      ? "Google Calendar - unable to load events"
+      : `Google Calendar · ${events.length} ${events.length === 1 ? "event" : "events"}`;
 
   return (
     <GlassCard glow="blue" className="p-5">
@@ -157,13 +153,15 @@ export function CalendarTimeline() {
 
       {loading ? (
         <div className="mt-8 flex h-[440px] items-center justify-center text-[12px] text-muted">
-          <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Loading…
+          <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Loading...
         </div>
       ) : !connected ? (
         <EmptyState
           title="Google Calendar isn't connected"
-          body="Connect it from Settings to see today's events here."
+          body="Connect it from Settings to see your events here."
         />
+      ) : data?.error ? (
+        <EmptyState title="Calendar events couldn't load" body={data.error} />
       ) : events.length === 0 ? (
         <EmptyState
           title={
@@ -173,7 +171,7 @@ export function CalendarTimeline() {
                 ? "Nothing scheduled this week"
                 : "Nothing scheduled this month"
           }
-          body="Enjoy the open space."
+          body="No events came back from Google for this range."
         />
       ) : range !== "day" ? (
         <EventList events={events} />
@@ -235,7 +233,7 @@ export function CalendarTimeline() {
                     "group absolute left-2 right-2 cursor-pointer overflow-hidden rounded-lg border border-white/[0.06] backdrop-blur-md transition-all hover:border-white/[0.16] hover:scale-[1.005]",
                     tone.bg,
                   )}
-                  style={{ top: `${top}%`, height: `calc(${height}% - 2px)` }}
+                  style={{ top: `${top}%`, height: `calc(${Math.max(height, 4)}% - 2px)` }}
                 >
                   <div
                     className={cn(
@@ -247,7 +245,7 @@ export function CalendarTimeline() {
                     <p className="text-[12px] font-medium text-white">{e.title}</p>
                     <div className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-muted">
                       <span className="font-mono">
-                        {fmtTime(e.start)}–{fmtTime(e.end)}
+                        {fmtTime(e.start)}-{fmtTime(e.end)}
                       </span>
                       {e.location ? (
                         <>
@@ -306,9 +304,9 @@ function EventList({ events }: { events: ApiEvent[] }) {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] text-white">{e.title}</p>
-                  {e.location ? (
-                    <p className="truncate text-[11px] text-muted">{e.location}</p>
-                  ) : null}
+                  <p className="truncate text-[11px] text-muted">
+                    {[e.calendarName, e.location].filter(Boolean).join(" · ")}
+                  </p>
                 </div>
               </div>
             ))}
@@ -324,7 +322,7 @@ function EmptyState({ title, body }: { title: string; body: string }) {
     <div className="mt-6 flex h-[400px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/[0.08] bg-white/[0.012] p-6 text-center">
       <Plug className="h-5 w-5 text-muted" />
       <p className="text-[13px] text-white">{title}</p>
-      <p className="max-w-xs text-[12px] text-subtle">{body}</p>
+      <p className="max-w-xs break-words text-[12px] text-subtle">{body}</p>
       <Link
         href="/settings"
         className="mt-1 rounded-md border border-neon-blue/30 bg-neon-blue/10 px-2.5 py-1 text-[11px] text-white hover:bg-neon-blue/20"
