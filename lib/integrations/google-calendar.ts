@@ -119,7 +119,53 @@ export type CalendarEvent = {
   end: string; // ISO
   location?: string;
   htmlLink?: string;
+  calendarId?: string;
+  calendarName?: string;
 };
+
+type GoogleCalendarListResponse = {
+  items?: Array<{
+    id: string;
+    summary?: string;
+    accessRole?: string;
+    selected?: boolean;
+    hidden?: boolean;
+  }>;
+};
+
+type GoogleEventsResponse = {
+  items?: Array<{
+    id: string;
+    summary?: string;
+    start?: { dateTime?: string; date?: string; timeZone?: string };
+    end?: { dateTime?: string; date?: string; timeZone?: string };
+    location?: string;
+    htmlLink?: string;
+  }>;
+};
+
+function canReadCalendar(accessRole?: string): boolean {
+  return ["owner", "writer", "reader", "freeBusyReader"].includes(
+    accessRole ?? "",
+  );
+}
+
+function toEventDate(value?: { dateTime?: string; date?: string }): string {
+  if (value?.dateTime) return value.dateTime;
+  if (value?.date) return `${value.date}T00:00:00`;
+  return new Date().toISOString();
+}
+
+async function fetchGoogleJSON<T>(url: URL, accessToken: string): Promise<T> {
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`google_api_failed: ${res.status} ${text}`);
+  }
+  return (await res.json()) as T;
+}
 
 export async function listGoogleEvents(
   secret: string,
@@ -128,38 +174,54 @@ export async function listGoogleEvents(
   const tokens = await getValidTokens(secret);
   if (!tokens) return null;
 
-  const url = new URL(
-    "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+  const calendarListUrl = new URL(
+    "https://www.googleapis.com/calendar/v3/users/me/calendarList",
   );
-  url.searchParams.set("singleEvents", "true");
-  url.searchParams.set("orderBy", "startTime");
-  url.searchParams.set("timeMin", opts.from.toISOString());
-  url.searchParams.set("timeMax", opts.to.toISOString());
-  url.searchParams.set("maxResults", "50");
+  calendarListUrl.searchParams.set("minAccessRole", "reader");
+  const calendarList = await fetchGoogleJSON<GoogleCalendarListResponse>(
+    calendarListUrl,
+    tokens.accessToken,
+  );
 
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${tokens.accessToken}` },
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`google_events_failed: ${res.status} ${text}`);
-  }
-  const data = (await res.json()) as {
-    items?: Array<{
-      id: string;
-      summary?: string;
-      start?: { dateTime?: string; date?: string };
-      end?: { dateTime?: string; date?: string };
-      location?: string;
-      htmlLink?: string;
-    }>;
-  };
-  return (data.items ?? []).map((e) => ({
-    id: e.id,
-    title: e.summary ?? "(no title)",
-    start: e.start?.dateTime ?? `${e.start?.date}T00:00:00Z`,
-    end: e.end?.dateTime ?? `${e.end?.date}T00:00:00Z`,
-    location: e.location,
-    htmlLink: e.htmlLink,
-  }));
+  const calendars = (calendarList.items ?? [])
+    .filter((calendar) => calendar.id && canReadCalendar(calendar.accessRole))
+    .filter((calendar) => !calendar.hidden || calendar.selected);
+
+  const fallbackCalendars = calendars.length
+    ? calendars
+    : [{ id: "primary", summary: "Primary" }];
+
+  const eventsByCalendar = await Promise.all(
+    fallbackCalendars.map(async (calendar) => {
+      const url = new URL(
+        `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
+          calendar.id,
+        )}/events`,
+      );
+      url.searchParams.set("singleEvents", "true");
+      url.searchParams.set("orderBy", "startTime");
+      url.searchParams.set("timeMin", opts.from.toISOString());
+      url.searchParams.set("timeMax", opts.to.toISOString());
+      url.searchParams.set("maxResults", "50");
+
+      const data = await fetchGoogleJSON<GoogleEventsResponse>(
+        url,
+        tokens.accessToken,
+      );
+      return (data.items ?? []).map((e) => ({
+        id: `${calendar.id}:${e.id}`,
+        title: e.summary ?? "(no title)",
+        start: toEventDate(e.start),
+        end: toEventDate(e.end),
+        location: e.location,
+        htmlLink: e.htmlLink,
+        calendarId: calendar.id,
+        calendarName: calendar.summary ?? calendar.id,
+      }));
+    }),
+  );
+
+  return eventsByCalendar
+    .flat()
+    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 }
