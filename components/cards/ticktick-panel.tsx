@@ -160,7 +160,7 @@ export function TickTickPanel() {
                 key={t.key}
                 onClick={() => setActive(t.key)}
                 className={cn(
-                  "relative flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[12px] font-medium transition-colors",
+                  "relative flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-2.5 text-[12px] font-medium transition-colors sm:py-1.5",
                   active === t.key ? "text-white" : "text-muted hover:text-subtle",
                 )}
               >

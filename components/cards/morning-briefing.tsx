@@ -27,7 +27,7 @@ export function MorningBriefing() {
   const recoveryGoal = user?.health.recoveryGoal ?? 80;
 
   return (
-    <GlassCard glow="violet" className="relative overflow-hidden p-6 lg:p-7">
+    <GlassCard glow="violet" className="relative overflow-hidden p-5 sm:p-6 lg:p-7">
       <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-neon-violet/15 blur-3xl" />
       <div className="pointer-events-none absolute -left-12 bottom-0 h-48 w-48 rounded-full bg-neon-blue/10 blur-3xl" />
 
@@ -77,7 +77,7 @@ export function MorningBriefing() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-5 lg:gap-6">
+        <div className="grid grid-cols-3 gap-2 sm:gap-5 lg:gap-6">
           <RingTile
             value={Math.min(100, Math.round((sleepTarget / 9) * 100))}
             tone="emerald"
@@ -120,12 +120,14 @@ function RingTile({
 }) {
   return (
     <div className="flex flex-col items-center gap-2">
-      <ProgressRing value={value} tone={tone} size={92} stroke={8} />
-      <div className="flex items-center gap-1 text-[11px] uppercase tracking-[0.14em] text-muted">
+      <div className="origin-center scale-75 sm:scale-100">
+        <ProgressRing value={value} tone={tone} size={92} stroke={8} />
+      </div>
+      <div className="flex items-center gap-1 text-[10px] uppercase tracking-[0.14em] text-muted sm:text-[11px]">
         {icon}
         {label}
       </div>
-      <span className="text-[11px] text-subtle">{sub}</span>
+      <span className="text-[10px] text-subtle sm:text-[11px]">{sub}</span>
     </div>
   );
 }

@@ -24,7 +24,7 @@ export default function ResearchPage() {
       />
       <ResearchCenter />
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-5 md:grid-cols-2">
         <GlassCard glow="blue" className="p-5">
           <CardHeader title="Upcoming Deadlines" />
           <div className="mt-4 space-y-2">

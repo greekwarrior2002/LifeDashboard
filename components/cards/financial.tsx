@@ -49,21 +49,21 @@ export function FinancialDashboard() {
         }
       />
 
-      <div className="mt-4 grid grid-cols-3 gap-3">
-        <div className="rounded-lg border border-white/[0.05] bg-white/[0.015] p-3">
+      <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="rounded-lg border border-white/[0.05] bg-white/[0.015] p-2.5 sm:p-3">
           <p className="text-[10px] uppercase tracking-widest text-muted">In</p>
-          <p className="mt-1 text-xl font-semibold text-white">{formatCurrency(totalIn)}</p>
-          <p className="mt-0.5 text-[11px] text-neon-emerald">+7% vs avg</p>
+          <p className="mt-1 text-lg font-semibold text-white sm:text-xl">{formatCurrency(totalIn)}</p>
+          <p className="mt-0.5 text-[10px] text-neon-emerald sm:text-[11px]">+7% vs avg</p>
         </div>
-        <div className="rounded-lg border border-white/[0.05] bg-white/[0.015] p-3">
+        <div className="rounded-lg border border-white/[0.05] bg-white/[0.015] p-2.5 sm:p-3">
           <p className="text-[10px] uppercase tracking-widest text-muted">Out</p>
-          <p className="mt-1 text-xl font-semibold text-white">{formatCurrency(totalOut)}</p>
-          <p className="mt-0.5 text-[11px] text-neon-amber">+12% conf travel</p>
+          <p className="mt-1 text-lg font-semibold text-white sm:text-xl">{formatCurrency(totalOut)}</p>
+          <p className="mt-0.5 text-[10px] text-neon-amber sm:text-[11px]">+12% conf travel</p>
         </div>
-        <div className="rounded-lg border border-white/[0.05] bg-gradient-to-br from-neon-blue/10 to-neon-violet/10 p-3">
+        <div className="rounded-lg border border-white/[0.05] bg-gradient-to-br from-neon-blue/10 to-neon-violet/10 p-2.5 sm:p-3">
           <p className="text-[10px] uppercase tracking-widest text-muted">Net</p>
-          <p className="mt-1 text-xl font-semibold text-white">{formatCurrency(net)}</p>
-          <p className="mt-0.5 text-[11px] text-subtle">→ savings</p>
+          <p className="mt-1 text-lg font-semibold text-white sm:text-xl">{formatCurrency(net)}</p>
+          <p className="mt-0.5 text-[10px] text-subtle sm:text-[11px]">→ savings</p>
         </div>
       </div>
 
@@ -91,8 +91,8 @@ export function FinancialDashboard() {
           </ResponsiveContainer>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="h-36 w-36">
+        <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
+          <div className="h-36 w-36 shrink-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Tooltip {...tooltipStyle} />

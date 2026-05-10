@@ -138,7 +138,7 @@ export function CalendarTimeline() {
                 type="button"
                 onClick={() => setRange(r.key)}
                 className={cn(
-                  "rounded px-2 py-0.5 transition-colors",
+                  "rounded px-2 py-1.5 transition-colors sm:py-0.5",
                   range === r.key
                     ? "bg-white/[0.06] text-white"
                     : "text-muted hover:text-white",
@@ -176,7 +176,7 @@ export function CalendarTimeline() {
       ) : range !== "day" ? (
         <EventList events={events} />
       ) : (
-        <div className="mt-5 grid grid-cols-[48px_1fr] gap-3">
+        <div className="mt-5 grid grid-cols-[36px_1fr] gap-2 sm:grid-cols-[48px_1fr] sm:gap-3">
           {/* Hour rail */}
           <div className="relative h-[440px]">
             {HOURS.map((h) => (

@@ -84,7 +84,7 @@ export function PrioritiesCard() {
               dragListener
               className="group flex items-center gap-3 rounded-xl border border-white/[0.05] bg-white/[0.015] px-3 py-2.5 transition-colors hover:border-white/[0.10] hover:bg-white/[0.04]"
             >
-              <GripVertical className="h-3.5 w-3.5 cursor-grab text-muted opacity-0 transition-opacity group-hover:opacity-100" />
+              <GripVertical className="h-4 w-4 cursor-grab text-muted opacity-100 transition-opacity sm:h-3.5 sm:w-3.5 sm:opacity-0 sm:group-hover:opacity-100" />
               <button
                 onClick={() => toggle(task.id)}
                 className={cn(
@@ -123,11 +123,11 @@ export function PrioritiesCard() {
           value={adding}
           onChange={(e) => setAdding(e.target.value)}
           placeholder="Add a priority…"
-          className="h-9 flex-1 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 text-[12px] text-white placeholder:text-muted focus:border-neon-blue/40 focus:outline-none"
+          className="h-11 flex-1 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 text-[14px] text-white placeholder:text-muted focus:border-neon-blue/40 focus:outline-none sm:h-9 sm:text-[12px]"
         />
         <button
           type="submit"
-          className="flex h-9 items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.02] px-2.5 text-[11px] text-subtle transition-colors hover:bg-white/[0.05] hover:text-white"
+          className="flex h-11 items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.02] px-3 text-[12px] text-subtle transition-colors hover:bg-white/[0.05] hover:text-white sm:h-9 sm:px-2.5 sm:text-[11px]"
         >
           <Plus className="h-3 w-3" /> Add
         </button>

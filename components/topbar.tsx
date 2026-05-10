@@ -2,26 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Cloud, Search, Sparkles, Wifi, X } from "lucide-react";
+import { Bell, Cloud, Menu, Search, Sparkles, Wifi, X } from "lucide-react";
 import { motion } from "framer-motion";
+import { navItems } from "@/lib/nav";
+import { useMobileNav } from "@/components/mobile-drawer";
 import { cn } from "@/lib/utils";
 
-type SearchTarget = { label: string; href: string; keywords: string };
-
-const TARGETS: SearchTarget[] = [
-  { label: "Mission Control", href: "/", keywords: "home dashboard mission control briefing" },
-  { label: "Calendar", href: "/calendar", keywords: "calendar events schedule google" },
-  { label: "Tasks", href: "/tasks", keywords: "tasks priorities ticktick todo" },
-  { label: "Research", href: "/research", keywords: "research lab manuscript publications deadlines" },
-  { label: "Health", href: "/health", keywords: "health recovery sleep hrv apple steps" },
-  { label: "Finance", href: "/finance", keywords: "finance money cash spend savings subscriptions" },
-  { label: "Cars", href: "/cars", keywords: "cars garage audi service mileage" },
-  { label: "Applications", href: "/applications", keywords: "applications med school cycle" },
-  { label: "Timeline", href: "/timeline", keywords: "timeline life milestones" },
-  { label: "Journal", href: "/journal", keywords: "journal mood reflection diary" },
-  { label: "Analytics", href: "/analytics", keywords: "analytics balance heatmap insights" },
-  { label: "Settings", href: "/settings", keywords: "settings integrations profile cards" },
-];
+const TARGETS = navItems.map((i) => ({
+  label: i.label,
+  href: i.href,
+  keywords: i.keywords,
+}));
 
 function useNow() {
   const [now, setNow] = useState<Date | null>(null);
@@ -52,6 +43,7 @@ export function Topbar() {
   const now = useNow();
   const online = useOnline();
   const router = useRouter();
+  const { setOpen: setMobileNavOpen } = useMobileNav();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [showNotifs, setShowNotifs] = useState(false);
@@ -111,31 +103,44 @@ export function Topbar() {
         initial={{ opacity: 0, y: -6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-white/[0.05] bg-ink-950/60 px-6 backdrop-blur-xl"
+        className="sticky top-0 z-20 flex h-16 items-center justify-between gap-2 border-b border-white/[0.05] bg-ink-950/60 px-3 pt-[max(0px,env(safe-area-inset-top))] backdrop-blur-xl sm:gap-4 sm:px-4 lg:px-6"
       >
-        <div className="flex items-center gap-3">
-          <p className="text-[13px] font-medium text-subtle">{date}</p>
-          <span className="h-3 w-px bg-white/10" />
-          <p className="font-mono text-[13px] text-white">{time}</p>
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             type="button"
-            onClick={() => setFocusMode((v) => !v)}
-            title={focusMode ? "Exit focus mode" : "Enter focus mode"}
-            className={cn(
-              "chip ml-2 transition-colors",
-              focusMode && "border-neon-emerald/40 bg-neon-emerald/10 text-white",
-            )}
+            onClick={() => setMobileNavOpen(true)}
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.02] text-subtle transition-colors hover:bg-white/[0.05] hover:text-white lg:hidden"
+            aria-label="Open menu"
           >
-            <span
-              className={cn(
-                "h-1.5 w-1.5 rounded-full",
-                focusMode
-                  ? "bg-neon-emerald shadow-[0_0_8px_rgba(52,211,153,0.8)]"
-                  : "bg-muted",
-              )}
-            />
-            Focus mode {focusMode ? "on" : "off"}
+            <Menu className="h-5 w-5" />
           </button>
+
+          <div className="hidden items-center gap-3 sm:flex">
+            <p className="text-[13px] font-medium text-subtle">{date}</p>
+            <span className="h-3 w-px bg-white/10" />
+            <p className="font-mono text-[13px] text-white">{time}</p>
+            <button
+              type="button"
+              onClick={() => setFocusMode((v) => !v)}
+              title={focusMode ? "Exit focus mode" : "Enter focus mode"}
+              className={cn(
+                "chip ml-2 transition-colors",
+                focusMode && "border-neon-emerald/40 bg-neon-emerald/10 text-white",
+              )}
+            >
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  focusMode
+                    ? "bg-neon-emerald shadow-[0_0_8px_rgba(52,211,153,0.8)]"
+                    : "bg-muted",
+                )}
+              />
+              Focus mode {focusMode ? "on" : "off"}
+            </button>
+          </div>
+
+          <p className="font-mono text-[13px] text-white sm:hidden">{time}</p>
         </div>
 
         <div className="hidden flex-1 items-center justify-center md:flex">
@@ -152,9 +157,17 @@ export function Topbar() {
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.02] text-subtle transition-colors hover:bg-white/[0.05] hover:text-white md:hidden"
+            aria-label="Search"
+          >
+            <Search className="h-5 w-5" />
+          </button>
           <span
-            className="flex h-9 items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] px-2.5 text-[12px] text-subtle"
+            className="hidden h-10 items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] px-2.5 text-[12px] text-subtle md:flex"
             title="Live weather isn't connected yet"
           >
             <Cloud className="h-3.5 w-3.5 text-neon-blue" />
@@ -162,7 +175,7 @@ export function Topbar() {
           </span>
           <span
             className={cn(
-              "flex h-9 items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] px-2.5 text-[12px]",
+              "hidden h-10 items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.02] px-2.5 text-[12px] md:flex",
               online ? "text-subtle" : "text-neon-rose",
             )}
             title={online ? "Online" : "Offline"}
@@ -178,19 +191,21 @@ export function Topbar() {
           <button
             type="button"
             onClick={() => setShowNotifs((v) => !v)}
-            className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.02] text-subtle transition-colors hover:bg-white/[0.05] hover:text-white"
+            className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.02] text-subtle transition-colors hover:bg-white/[0.05] hover:text-white"
             title="Notifications"
+            aria-label="Notifications"
           >
             <Bell className="h-4 w-4" />
-            <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-neon-blue shadow-[0_0_8px_rgba(91,140,255,0.8)]" />
+            <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-neon-blue shadow-[0_0_8px_rgba(91,140,255,0.8)]" />
           </button>
           <button
             type="button"
             onClick={goToBriefing}
-            className="flex h-9 items-center gap-1.5 rounded-lg border border-neon-blue/30 bg-gradient-to-r from-neon-blue/15 to-neon-violet/15 px-3 text-[12px] font-medium text-white shadow-glow transition-transform hover:scale-[1.02]"
+            className="flex h-10 items-center gap-1.5 rounded-lg border border-neon-blue/30 bg-gradient-to-r from-neon-blue/15 to-neon-violet/15 px-2.5 text-[12px] font-medium text-white shadow-glow transition-transform hover:scale-[1.02] sm:px-3"
+            aria-label="AI Briefing"
           >
             <Sparkles className="h-3.5 w-3.5" />
-            AI Briefing
+            <span className="hidden sm:inline">AI Briefing</span>
           </button>
         </div>
       </motion.header>
@@ -202,7 +217,7 @@ export function Topbar() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="absolute right-6 top-16 w-[300px] rounded-xl border border-white/[0.08] bg-ink-950/95 p-4 shadow-glass backdrop-blur-xl"
+            className="absolute right-3 top-14 w-[calc(100vw-1.5rem)] max-w-[300px] rounded-xl border border-white/[0.08] bg-ink-950/95 p-4 shadow-glass backdrop-blur-xl sm:right-6 sm:top-16"
           >
             <div className="flex items-center justify-between">
               <p className="text-[13px] font-semibold text-white">Notifications</p>
@@ -210,6 +225,7 @@ export function Topbar() {
                 type="button"
                 onClick={() => setShowNotifs(false)}
                 className="text-muted hover:text-white"
+                aria-label="Close notifications"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -223,7 +239,7 @@ export function Topbar() {
 
       {paletteOpen ? (
         <div
-          className="fixed inset-0 z-40 flex items-start justify-center bg-ink-950/80 px-4 pt-[15vh] backdrop-blur-sm"
+          className="fixed inset-0 z-40 flex items-start justify-center bg-ink-950/80 px-3 pt-[10vh] backdrop-blur-sm sm:px-4 sm:pt-[15vh]"
           onClick={() => setPaletteOpen(false)}
         >
           <div
@@ -242,11 +258,19 @@ export function Topbar() {
                 placeholder="Jump to a page…"
                 className="h-12 flex-1 bg-transparent text-[14px] text-white placeholder:text-muted focus:outline-none"
               />
-              <kbd className="rounded border border-white/10 bg-white/[0.03] px-1.5 py-0.5 text-[10px] text-muted">
+              <kbd className="hidden rounded border border-white/10 bg-white/[0.03] px-1.5 py-0.5 text-[10px] text-muted sm:inline">
                 Esc
               </kbd>
+              <button
+                type="button"
+                onClick={() => setPaletteOpen(false)}
+                className="text-muted hover:text-white sm:hidden"
+                aria-label="Close search"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <div className="max-h-[50vh] overflow-y-auto py-1">
+            <div className="max-h-[55vh] overflow-y-auto py-1">
               {matches.length === 0 ? (
                 <p className="px-3 py-4 text-[12px] text-muted">No results.</p>
               ) : (
@@ -255,7 +279,7 @@ export function Topbar() {
                     key={t.href}
                     type="button"
                     onClick={() => goTo(t.href)}
-                    className="flex w-full items-center justify-between px-3 py-2 text-left text-[13px] text-subtle transition-colors hover:bg-white/[0.05] hover:text-white"
+                    className="flex w-full items-center justify-between px-3 py-3 text-left text-[13px] text-subtle transition-colors hover:bg-white/[0.05] hover:text-white"
                   >
                     <span>{t.label}</span>
                     <span className="font-mono text-[11px] text-muted">{t.href}</span>

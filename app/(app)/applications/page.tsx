@@ -10,7 +10,7 @@ export default function ApplicationsPage() {
         title="Med School Cycle"
         description="Track each school by stage — CASPer, personal statement, references, and final submission."
       />
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-2">
         {medApps.map((m) => (
           <GlassCard key={m.school} glow="violet" className="p-5">
             <CardHeader title={m.school} subtitle={`${m.stage} · due ${m.deadline}`} />

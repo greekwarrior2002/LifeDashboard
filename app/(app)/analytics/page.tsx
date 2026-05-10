@@ -21,15 +21,15 @@ export default function AnalyticsPage() {
         title="Life patterns"
         description="Where your time, energy, and attention actually go — and what to do about it."
       />
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-5 md:grid-cols-2">
         <LifeBalance />
         <AIInsights />
       </div>
 
       <GlassCard glow="blue" className="p-5">
         <CardHeader title="Deep-work heatmap" subtitle="Cognitive intensity by hour · last 4 weeks" />
-        <div className="mt-4">
-          <div className="grid grid-cols-[36px_1fr] gap-2">
+        <div className="mt-4 -mx-1 overflow-x-auto px-1">
+          <div className="grid min-w-[480px] grid-cols-[36px_1fr] gap-2">
             <div className="space-y-1">
               {days.map((d) => (
                 <div key={d} className="flex h-5 items-center text-[10px] text-muted">{d}</div>

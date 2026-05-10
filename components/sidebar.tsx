@@ -4,41 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import {
-  Home,
-  CalendarDays,
-  CheckSquare,
-  FlaskConical,
-  HeartPulse,
-  Wallet,
-  Car,
-  GraduationCap,
-  Clock,
-  NotebookPen,
-  BarChart3,
-  Settings,
-  Command,
-  LogOut,
-  Search,
-  X,
-} from "lucide-react";
+import { Command, LogOut, Search, X } from "lucide-react";
+import { navItems } from "@/lib/nav";
 import { useUser } from "@/lib/hooks/use-user";
 import { cn } from "@/lib/utils";
 
-const items = [
-  { href: "/", label: "Mission Control", icon: Home, badge: "Live" },
-  { href: "/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/tasks", label: "Tasks", icon: CheckSquare, badge: "12" },
-  { href: "/research", label: "Research", icon: FlaskConical },
-  { href: "/health", label: "Health", icon: HeartPulse },
-  { href: "/finance", label: "Finance", icon: Wallet },
-  { href: "/cars", label: "Cars", icon: Car },
-  { href: "/applications", label: "Applications", icon: GraduationCap },
-  { href: "/timeline", label: "Timeline", icon: Clock },
-  { href: "/journal", label: "Journal", icon: NotebookPen },
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
+const items = navItems;
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);

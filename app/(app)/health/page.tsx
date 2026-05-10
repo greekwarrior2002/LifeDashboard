@@ -21,7 +21,7 @@ export default async function HealthPage() {
             : "Sleep, HRV, training load, stress, and life balance — connect Apple Health from Settings to start syncing real data."
         }
       />
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-5 md:grid-cols-2">
         <RecoveryHealth />
         <SleepConsistency />
       </div>

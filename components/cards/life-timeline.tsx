@@ -34,7 +34,8 @@ export function LifeTimeline() {
         icon={<Clock className="h-4 w-4 text-neon-blue" />}
       />
 
-      <div className="mt-5 overflow-x-auto pb-2">
+      {/* Desktop / tablet: horizontal zigzag */}
+      <div className="mt-5 hidden overflow-x-auto pb-2 md:block">
         <div className="relative min-w-[800px]">
           {/* spine */}
           <div className="absolute left-0 right-0 top-7 h-px bg-gradient-to-r from-transparent via-white/[0.12] to-transparent" />
@@ -72,6 +73,38 @@ export function LifeTimeline() {
           </div>
         </div>
       </div>
+
+      {/* Mobile: vertical spine */}
+      <ol className="relative ml-2 mt-5 space-y-3 border-l border-white/[0.10] pl-5 md:hidden">
+        {lifeMilestones.map((m, i) => {
+          const Icon = kindIcon[m.kind] ?? Clock;
+          const tone = kindTone[m.kind] ?? "from-neon-blue to-neon-violet";
+          return (
+            <motion.li
+              key={i}
+              initial={{ opacity: 0, x: 4 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.03 }}
+              className="relative"
+            >
+              <span
+                className={cn(
+                  "absolute -left-[27px] top-2 flex h-4 w-4 items-center justify-center rounded-full border border-white/[0.10] bg-ink-900 shadow-glow",
+                )}
+              >
+                <span className={cn("h-2 w-2 rounded-full bg-gradient-to-br", tone)} />
+              </span>
+              <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-3 backdrop-blur-md">
+                <div className="flex items-center gap-1.5 text-[11px] text-muted">
+                  <Icon className="h-3 w-3" />
+                  {m.date}
+                </div>
+                <p className="mt-1 text-[13px] font-medium text-white">{m.title}</p>
+              </div>
+            </motion.li>
+          );
+        })}
+      </ol>
     </GlassCard>
   );
 }
