@@ -4,6 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Loader2, Save } from "lucide-react";
 import { GlassCard, CardHeader } from "@/components/ui/glass-card";
 import { OAuthButton } from "@/components/onboarding/oauth-button";
+import {
+  AppleHealthConnect,
+  AppleHealthSetupPanel,
+  type ConnectResponse,
+} from "@/components/onboarding/apple-health-connect";
 import type { CardKey, PublicUserState } from "@/lib/types/user";
 
 const cardOptions: Array<{ key: CardKey; label: string }> = [
@@ -25,6 +30,7 @@ export function SettingsClient({
   const [state, setState] = useState<PublicUserState>(initialState);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [appleReveal, setAppleReveal] = useState<ConnectResponse | null>(null);
   const dirtyRef = useRef(false);
 
   const refresh = useCallback(async () => {
@@ -119,6 +125,30 @@ export function SettingsClient({
               onChange={refresh}
             />
           </div>
+          <div className="flex items-center justify-between rounded-lg border border-white/[0.05] bg-white/[0.015] px-3 py-3">
+            <div>
+              <p className="text-[13px] text-white">Apple Health</p>
+              <p className="text-[11px] text-muted">
+                {state.integrations.apple_health.connected
+                  ? `Connected${state.integrations.apple_health.connectedAt ? ` · ${new Date(state.integrations.apple_health.connectedAt).toLocaleDateString()}` : ""} · push from Health Auto Export (iOS)`
+                  : "Push HRV, sleep, steps from iOS via Health Auto Export"}
+              </p>
+            </div>
+            <AppleHealthConnect
+              connected={state.integrations.apple_health.connected}
+              connectedAt={state.integrations.apple_health.connectedAt}
+              onChange={refresh}
+              onIssued={(r) => setAppleReveal(r)}
+              onDisconnected={() => setAppleReveal(null)}
+            />
+          </div>
+          {appleReveal ? (
+            <AppleHealthSetupPanel
+              apiKey={appleReveal.apiKey}
+              webhookUrl={appleReveal.webhookUrl}
+              onClose={() => setAppleReveal(null)}
+            />
+          ) : null}
         </div>
       </GlassCard>
 

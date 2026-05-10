@@ -1,0 +1,371 @@
+// Health Auto Export (https://www.healthyapps.dev/) payload parser.
+// HAE pushes JSON in this shape from the iOS app:
+// { data: { metrics: [{ name, units, data: [{...}] }, ...], workouts: [...] } }
+
+import type { DayRollup, SleepDay, WorkoutSample } from "@/lib/types/health";
+
+export type HAEMetricSample = {
+  date?: string;
+  // Sleep samples
+  sleepStart?: string;
+  sleepEnd?: string;
+  inBed?: number;
+  asleep?: number;
+  source?: string;
+  // Most numeric metrics
+  qty?: number;
+  // Some HAE metrics use min/max/avg fields
+  Avg?: number;
+  Min?: number;
+  Max?: number;
+};
+
+export type HAEMetric = {
+  name: string;
+  units?: string;
+  data: HAEMetricSample[];
+};
+
+export type HAEWorkout = {
+  name?: string;
+  start?: string;
+  end?: string;
+  duration?: number; // seconds
+  totalEnergyBurned?: number;
+};
+
+export type HAEPayload = {
+  data?: {
+    metrics?: HAEMetric[];
+    workouts?: HAEWorkout[];
+  };
+};
+
+// --- Date parsing -----------------------------------------------------------
+
+// HAE timestamps look like "2024-05-09 23:00:00 -0400". Parse to Date.
+function parseHAEDate(input: string | undefined): Date | null {
+  if (!input) return null;
+  // Replace the space between date and time with 'T' and convert the offset
+  // "-0400" → "-04:00" so it parses as ISO-8601.
+  const iso = input
+    .replace(" ", "T")
+    .replace(/ (-?\d{2})(\d{2})$/, "$1:$2")
+    .replace(/ ([+-]\d{2}:\d{2})$/, "$1");
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d;
+}
+
+// YYYY-MM-DD in the given IANA timezone for an absolute Date.
+export function localDateKey(d: Date, timezone: string): string {
+  try {
+    const fmt = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    return fmt.format(d); // en-CA gives YYYY-MM-DD
+  } catch {
+    return d.toISOString().slice(0, 10);
+  }
+}
+
+// Decimal-hour clock time for a date in the given timezone.
+function localClockHours(d: Date, timezone: string): number {
+  try {
+    const fmt = new Intl.DateTimeFormat("en-GB", {
+      timeZone: timezone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    const parts = fmt.formatToParts(d);
+    const h = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+    const m = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+    return h + m / 60;
+  } catch {
+    return d.getUTCHours() + d.getUTCMinutes() / 60;
+  }
+}
+
+// --- Per-day accumulator ---------------------------------------------------
+
+type Bucket = {
+  date: string;
+  sleepBlocks: SleepDay[];
+  hrvSum: number;
+  hrvCount: number;
+  rhr?: number;
+  steps?: number;
+  activeEnergy?: number;
+  exerciseMin?: number;
+  mindfulMin?: number;
+  respRate?: number;
+  workouts: WorkoutSample[];
+  raw: Record<string, number>;
+};
+
+function bucket(byDate: Map<string, Bucket>, key: string): Bucket {
+  let b = byDate.get(key);
+  if (!b) {
+    b = {
+      date: key,
+      sleepBlocks: [],
+      hrvSum: 0,
+      hrvCount: 0,
+      workouts: [],
+      raw: {},
+    };
+    byDate.set(key, b);
+  }
+  return b;
+}
+
+function sampleValue(s: HAEMetricSample): number | null {
+  if (typeof s.qty === "number") return s.qty;
+  if (typeof s.Avg === "number") return s.Avg;
+  return null;
+}
+
+// Map HAE metric name → handler that updates the bucket for that day.
+function handleMetric(
+  metric: HAEMetric,
+  timezone: string,
+  byDate: Map<string, Bucket>,
+): { handled: boolean; samples: number } {
+  let samples = 0;
+  switch (metric.name) {
+    case "sleep_analysis": {
+      for (const s of metric.data) {
+        const start = parseHAEDate(s.sleepStart) ?? parseHAEDate(s.date);
+        const end = parseHAEDate(s.sleepEnd);
+        if (!start || !end) continue;
+        // Attribute the sleep block to the wake date.
+        const key = localDateKey(end, timezone);
+        const b = bucket(byDate, key);
+        b.sleepBlocks.push({
+          inBedHours: typeof s.inBed === "number" ? s.inBed : (end.getTime() - start.getTime()) / 3_600_000,
+          asleepHours: typeof s.asleep === "number" ? s.asleep : (end.getTime() - start.getTime()) / 3_600_000,
+          bedTime: localClockHours(start, timezone),
+          wakeTime: localClockHours(end, timezone),
+          sources: s.source ? [s.source] : undefined,
+        });
+        samples++;
+      }
+      return { handled: true, samples };
+    }
+    case "heart_rate_variability": {
+      for (const s of metric.data) {
+        const v = sampleValue(s);
+        const d = parseHAEDate(s.date);
+        if (v === null || !d) continue;
+        const b = bucket(byDate, localDateKey(d, timezone));
+        b.hrvSum += v;
+        b.hrvCount++;
+        samples++;
+      }
+      return { handled: true, samples };
+    }
+    case "resting_heart_rate": {
+      for (const s of metric.data) {
+        const v = sampleValue(s);
+        const d = parseHAEDate(s.date);
+        if (v === null || !d) continue;
+        const b = bucket(byDate, localDateKey(d, timezone));
+        b.rhr = v;
+        samples++;
+      }
+      return { handled: true, samples };
+    }
+    case "respiratory_rate": {
+      for (const s of metric.data) {
+        const v = sampleValue(s);
+        const d = parseHAEDate(s.date);
+        if (v === null || !d) continue;
+        const b = bucket(byDate, localDateKey(d, timezone));
+        b.respRate = v;
+        samples++;
+      }
+      return { handled: true, samples };
+    }
+    case "step_count": {
+      for (const s of metric.data) {
+        const v = sampleValue(s);
+        const d = parseHAEDate(s.date);
+        if (v === null || !d) continue;
+        const b = bucket(byDate, localDateKey(d, timezone));
+        b.steps = (b.steps ?? 0) + v;
+        samples++;
+      }
+      return { handled: true, samples };
+    }
+    case "active_energy": {
+      for (const s of metric.data) {
+        const v = sampleValue(s);
+        const d = parseHAEDate(s.date);
+        if (v === null || !d) continue;
+        const b = bucket(byDate, localDateKey(d, timezone));
+        b.activeEnergy = (b.activeEnergy ?? 0) + v;
+        samples++;
+      }
+      return { handled: true, samples };
+    }
+    case "apple_exercise_time": {
+      for (const s of metric.data) {
+        const v = sampleValue(s);
+        const d = parseHAEDate(s.date);
+        if (v === null || !d) continue;
+        const b = bucket(byDate, localDateKey(d, timezone));
+        b.exerciseMin = (b.exerciseMin ?? 0) + v;
+        samples++;
+      }
+      return { handled: true, samples };
+    }
+    case "mindful_minutes":
+    case "mindful_session": {
+      for (const s of metric.data) {
+        const v = sampleValue(s);
+        const d = parseHAEDate(s.date);
+        if (v === null || !d) continue;
+        const b = bucket(byDate, localDateKey(d, timezone));
+        b.mindfulMin = (b.mindfulMin ?? 0) + v;
+        samples++;
+      }
+      return { handled: true, samples };
+    }
+    default:
+      return { handled: false, samples: 0 };
+  }
+}
+
+function reduceSleepBlocks(blocks: SleepDay[]): SleepDay | undefined {
+  if (blocks.length === 0) return undefined;
+  // Pick the longest asleep block as the "main" sleep, sum durations across all.
+  const main = blocks.reduce((a, b) => (b.asleepHours > a.asleepHours ? b : a));
+  const inBedHours = blocks.reduce((sum, b) => sum + b.inBedHours, 0);
+  const asleepHours = blocks.reduce((sum, b) => sum + b.asleepHours, 0);
+  const sources = Array.from(
+    new Set(blocks.flatMap((b) => b.sources ?? [])),
+  );
+  return {
+    inBedHours,
+    asleepHours,
+    bedTime: main.bedTime,
+    wakeTime: main.wakeTime,
+    sources: sources.length ? sources : undefined,
+  };
+}
+
+export type ParseResult = {
+  days: DayRollup[];
+  metrics: number; // distinct metric kinds we processed
+  samples: number; // total individual samples ingested
+};
+
+export function parseHAEPayload(
+  payload: HAEPayload,
+  timezone: string,
+): ParseResult {
+  const byDate = new Map<string, Bucket>();
+  const metrics = payload.data?.metrics ?? [];
+  let totalSamples = 0;
+  let metricCount = 0;
+
+  for (const m of metrics) {
+    const { handled, samples } = handleMetric(m, timezone, byDate);
+    if (handled) {
+      if (samples > 0) metricCount++;
+      totalSamples += samples;
+    } else {
+      // Stash unknown metrics in `raw` keyed by metric name (sum of qty per day).
+      for (const s of m.data ?? []) {
+        const v = sampleValue(s);
+        const d = parseHAEDate(s.date);
+        if (v === null || !d) continue;
+        const b = bucket(byDate, localDateKey(d, timezone));
+        b.raw[m.name] = (b.raw[m.name] ?? 0) + v;
+        totalSamples++;
+      }
+      if ((m.data ?? []).length > 0) metricCount++;
+    }
+  }
+
+  for (const w of payload.data?.workouts ?? []) {
+    const start = parseHAEDate(w.start);
+    const end = parseHAEDate(w.end);
+    if (!start || !end) continue;
+    const key = localDateKey(start, timezone);
+    const b = bucket(byDate, key);
+    const durationSec = w.duration ?? (end.getTime() - start.getTime()) / 1000;
+    b.workouts.push({
+      type: w.name ?? "Workout",
+      start: start.toISOString(),
+      end: end.toISOString(),
+      durationMin: Math.round(durationSec / 60),
+      energyKcal: w.totalEnergyBurned,
+    });
+    totalSamples++;
+  }
+  if ((payload.data?.workouts ?? []).length > 0) metricCount++;
+
+  const days: DayRollup[] = [];
+  for (const b of byDate.values()) {
+    days.push({
+      date: b.date,
+      sleep: reduceSleepBlocks(b.sleepBlocks),
+      hrv: b.hrvCount > 0
+        ? { avgMs: Math.round(b.hrvSum / b.hrvCount), samples: b.hrvCount }
+        : undefined,
+      restingHeartRate: b.rhr,
+      steps: b.steps !== undefined ? Math.round(b.steps) : undefined,
+      activeEnergyKcal: b.activeEnergy !== undefined ? Math.round(b.activeEnergy) : undefined,
+      exerciseMinutes: b.exerciseMin !== undefined ? Math.round(b.exerciseMin) : undefined,
+      mindfulMinutes: b.mindfulMin !== undefined ? Math.round(b.mindfulMin) : undefined,
+      respiratoryRate: b.respRate,
+      workouts: b.workouts.length ? b.workouts : undefined,
+      raw: Object.keys(b.raw).length ? b.raw : undefined,
+    });
+  }
+
+  return { days, metrics: metricCount, samples: totalSamples };
+}
+
+// --- Derived readiness score ----------------------------------------------
+
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, n));
+}
+
+export function computeReadiness(
+  day: DayRollup,
+  context: { sleepTargetHours: number; hrvBaselineMs: number | null },
+): number | null {
+  const sleepHours = day.sleep?.asleepHours;
+  const hrv = day.hrv?.avgMs;
+  if (sleepHours === undefined && hrv === undefined) return null;
+
+  const sleepScore =
+    sleepHours !== undefined
+      ? clamp((sleepHours / context.sleepTargetHours) * 100, 0, 100)
+      : null;
+  const hrvScore =
+    hrv !== undefined && context.hrvBaselineMs && context.hrvBaselineMs > 0
+      ? clamp((hrv / context.hrvBaselineMs) * 100, 0, 100)
+      : null;
+
+  if (sleepScore !== null && hrvScore !== null) {
+    return Math.round(0.5 * sleepScore + 0.5 * hrvScore);
+  }
+  return Math.round(sleepScore ?? hrvScore ?? 0);
+}
+
+export function hrvBaseline(days: DayRollup[]): number | null {
+  const samples: number[] = [];
+  for (const d of days) {
+    if (d.hrv?.avgMs) samples.push(d.hrv.avgMs);
+  }
+  if (samples.length === 0) return null;
+  return samples.reduce((a, b) => a + b, 0) / samples.length;
+}
