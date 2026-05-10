@@ -8,7 +8,17 @@ import {
   type UserState,
 } from "@/lib/types/user";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+function resolveDataDir(): string {
+  const override = process.env.LIFEOS_DATA_DIR;
+  if (override && override.length > 0) return override;
+  // Vercel / serverless: only /tmp is writable. Note this is ephemeral —
+  // configure a real persistent store (Vercel Blob, KV, or LIFEOS_DATA_DIR
+  // pointing at a mounted volume) for durable state.
+  if (process.env.VERCEL) return "/tmp/lifeos";
+  return path.join(process.cwd(), "data");
+}
+
+const DATA_DIR = resolveDataDir();
 const FILE_PATH = path.join(DATA_DIR, "user.json");
 
 let writeChain: Promise<void> = Promise.resolve();
@@ -117,4 +127,8 @@ export function toPublic(state: UserState): PublicUserState {
       },
     },
   };
+}
+
+export function getDataDirInfo() {
+  return { dataDir: DATA_DIR, ephemeral: !process.env.LIFEOS_DATA_DIR && !!process.env.VERCEL };
 }

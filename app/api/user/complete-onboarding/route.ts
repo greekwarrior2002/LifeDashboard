@@ -4,21 +4,31 @@ import { requireSession } from "@/lib/api-auth";
 import { completeOnboarding, toPublic } from "@/lib/user-store";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
 
-  const next = await completeOnboarding();
-  const token = await signSession(auth.secret, { onboarded: true });
+  try {
+    const next = await completeOnboarding();
+    const token = await signSession(auth.secret, { onboarded: true });
 
-  const res = NextResponse.json({ ok: true, user: toPublic(next) });
-  res.cookies.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSION_TTL,
-  });
-  return res;
+    const res = NextResponse.json({ ok: true, user: toPublic(next) });
+    res.cookies.set(SESSION_COOKIE, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: SESSION_TTL,
+    });
+    return res;
+  } catch (err) {
+    const detail = (err as Error).message;
+    console.error("[/api/user/complete-onboarding] failed:", detail);
+    return NextResponse.json(
+      { error: "write_failed", detail },
+      { status: 500 },
+    );
+  }
 }
