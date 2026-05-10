@@ -4,6 +4,11 @@
 const COOKIE_NAME = "lifeos_session";
 const TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
+export type SessionPayload = {
+  exp: number;
+  onboarded: boolean;
+};
+
 function b64url(input: ArrayBuffer | Uint8Array): string {
   const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
   let bin = "";
@@ -30,25 +35,32 @@ async function getKey(secret: string) {
   );
 }
 
-export async function signSession(secret: string): Promise<string> {
-  const exp = Math.floor(Date.now() / 1000) + TTL_SECONDS;
-  const payload = b64url(new TextEncoder().encode(String(exp)));
+export async function signSession(
+  secret: string,
+  options: { onboarded?: boolean; ttlSeconds?: number } = {},
+): Promise<string> {
+  const ttl = options.ttlSeconds ?? TTL_SECONDS;
+  const payload: SessionPayload = {
+    exp: Math.floor(Date.now() / 1000) + ttl,
+    onboarded: options.onboarded ?? false,
+  };
+  const encoded = b64url(new TextEncoder().encode(JSON.stringify(payload)));
   const key = await getKey(secret);
   const sig = await crypto.subtle.sign(
     "HMAC",
     key,
-    new TextEncoder().encode(payload),
+    new TextEncoder().encode(encoded),
   );
-  return `${payload}.${b64url(sig)}`;
+  return `${encoded}.${b64url(sig)}`;
 }
 
 export async function verifySession(
   secret: string,
   token: string | undefined,
-): Promise<boolean> {
-  if (!token) return false;
+): Promise<SessionPayload | null> {
+  if (!token) return null;
   const [payload, sig] = token.split(".");
-  if (!payload || !sig) return false;
+  if (!payload || !sig) return null;
   try {
     const key = await getKey(secret);
     const ok = await crypto.subtle.verify(
@@ -57,11 +69,31 @@ export async function verifySession(
       fromB64url(sig),
       new TextEncoder().encode(payload),
     );
-    if (!ok) return false;
-    const exp = Number(new TextDecoder().decode(fromB64url(payload)));
-    return Number.isFinite(exp) && exp > Math.floor(Date.now() / 1000);
+    if (!ok) return null;
+    const decoded = new TextDecoder().decode(fromB64url(payload));
+    // Backwards compat: original tokens stored just the exp number.
+    let parsed: SessionPayload;
+    try {
+      const obj = JSON.parse(decoded);
+      if (typeof obj === "number") {
+        parsed = { exp: obj, onboarded: false };
+      } else {
+        parsed = {
+          exp: Number(obj.exp),
+          onboarded: !!obj.onboarded,
+        };
+      }
+    } catch {
+      const exp = Number(decoded);
+      if (!Number.isFinite(exp)) return null;
+      parsed = { exp, onboarded: false };
+    }
+    if (!Number.isFinite(parsed.exp) || parsed.exp <= Math.floor(Date.now() / 1000)) {
+      return null;
+    }
+    return parsed;
   } catch {
-    return false;
+    return null;
   }
 }
 

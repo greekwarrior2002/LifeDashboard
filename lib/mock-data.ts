@@ -1,5 +1,6 @@
-// All mock data for the Life Command Center.
-// Personalized for Damian — graduate student / med-school applicant / TA.
+// Sample data for cards that don't yet have real integrations
+// (health, finance, cars, research, etc). Tasks and calendar events
+// come from real OAuth integrations — see lib/integrations/*.
 
 export type Priority = "P1" | "P2" | "P3";
 
@@ -13,86 +14,6 @@ export type Task = {
   tags: string[];
   estMinutes?: number;
 };
-
-export const todaysPriorities: Task[] = [
-  {
-    id: "t1",
-    title: "Thesis — finish Methods section v3",
-    project: "MSc Thesis",
-    priority: "P1",
-    due: "Today · 11:30",
-    done: false,
-    tags: ["deep-work", "writing"],
-    estMinutes: 120,
-  },
-  {
-    id: "t2",
-    title: "Run participant #14 — IAAO cyclist study",
-    project: "Research",
-    priority: "P1",
-    due: "Today · 14:00",
-    done: false,
-    tags: ["lab", "data"],
-    estMinutes: 90,
-  },
-  {
-    id: "t3",
-    title: "Grade Lab 6 stack — KIN 2010",
-    project: "TA",
-    priority: "P2",
-    due: "Today · 19:00",
-    done: false,
-    tags: ["grading"],
-    estMinutes: 75,
-  },
-  {
-    id: "t4",
-    title: "Push session — squat 4×5",
-    project: "Fitness",
-    priority: "P2",
-    due: "Today · 17:30",
-    done: false,
-    tags: ["gym"],
-    estMinutes: 60,
-  },
-  {
-    id: "t5",
-    title: "CASPer — 2 timed scenarios",
-    project: "Med Apps",
-    priority: "P2",
-    due: "Today · 21:00",
-    done: false,
-    tags: ["application"],
-    estMinutes: 30,
-  },
-  {
-    id: "t6",
-    title: "Mobility + 10 min meditation",
-    project: "Recovery",
-    priority: "P3",
-    due: "Tonight",
-    done: true,
-    tags: ["recovery"],
-  },
-];
-
-export const tickTickInbox: Task[] = [
-  { id: "i1", title: "Email Dr. Klein re: ethics amendment", project: "Inbox", priority: "P1", due: "Overdue · 2d", done: false, tags: ["email"] },
-  { id: "i2", title: "Submit conference abstract — CSEP", project: "Inbox", priority: "P1", due: "Fri", done: false, tags: ["abstract"] },
-  { id: "i3", title: "Renew gym membership", project: "Inbox", priority: "P3", due: "Sat", done: false, tags: ["personal"] },
-  { id: "i4", title: "Book Audi A5 oil change", project: "Cars", priority: "P2", due: "Next week", done: false, tags: ["car"] },
-  { id: "i5", title: "Reply to MD/PhD newsletter", project: "Inbox", priority: "P3", due: "—", done: false, tags: ["read"] },
-];
-
-export const calendarEvents = [
-  { id: "c1", title: "KIN 2010 — Lab supervision", start: "08:30", end: "10:00", color: "violet", location: "Bartlett 113" },
-  { id: "c2", title: "Deep work — Thesis Methods", start: "10:15", end: "12:15", color: "blue", location: "Library, study pod 4" },
-  { id: "c3", title: "Lunch + walk", start: "12:30", end: "13:00", color: "emerald", location: "Outside" },
-  { id: "c4", title: "Lab — Participant #14 IAAO", start: "14:00", end: "15:30", color: "blue", location: "BRL Lab" },
-  { id: "c5", title: "Meeting — Dr. Klein", start: "16:00", end: "16:30", color: "amber", location: "Zoom" },
-  { id: "c6", title: "Gym — Push", start: "17:30", end: "18:30", color: "emerald", location: "GoodLife North" },
-  { id: "c7", title: "CASPer prep", start: "21:00", end: "21:30", color: "violet", location: "Home" },
-];
 
 export const recoveryTrend = [
   { day: "Mon", sleep: 7.2, hrv: 64, readiness: 78 },
