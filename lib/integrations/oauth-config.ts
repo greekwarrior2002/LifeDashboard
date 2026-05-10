@@ -10,18 +10,44 @@ export type OAuthProviderConfig = {
   extraAuthParams?: Record<string, string>;
 };
 
+type OAuthRequestLike = {
+  headers: { get(name: string): string | null };
+  nextUrl?: { origin: string; protocol: string };
+};
+
 function getEnv(name: string): string | null {
   const v = process.env[name];
   return v && v.length > 0 ? v : null;
 }
 
-function defaultRedirect(provider: IntegrationProvider): string {
-  const base = process.env.LIFEOS_PUBLIC_URL || "http://localhost:3000";
+function firstHeaderValue(value: string | null): string | null {
+  return value?.split(",")[0]?.trim() || null;
+}
+
+export function getOAuthRedirectBaseUrl(req: OAuthRequestLike): string {
+  const host =
+    firstHeaderValue(req.headers.get("x-forwarded-host")) ??
+    firstHeaderValue(req.headers.get("host"));
+  const proto =
+    firstHeaderValue(req.headers.get("x-forwarded-proto")) ??
+    req.nextUrl?.protocol.replace(/:$/, "") ??
+    (host?.startsWith("localhost") ? "http" : "https");
+
+  if (host) return `${proto}://${host}`;
+  return req.nextUrl?.origin ?? getEnv("LIFEOS_PUBLIC_URL") ?? "http://localhost:3000";
+}
+
+function defaultRedirect(
+  provider: IntegrationProvider,
+  redirectBaseUrl?: string,
+): string {
+  const base = redirectBaseUrl ?? process.env.LIFEOS_PUBLIC_URL ?? "http://localhost:3000";
   return `${base.replace(/\/$/, "")}/api/oauth/${provider}/callback`;
 }
 
 export function getProviderConfig(
   provider: IntegrationProvider,
+  redirectBaseUrl?: string,
 ): OAuthProviderConfig | null {
   if (provider === "google") {
     const clientId = getEnv("GOOGLE_OAUTH_CLIENT_ID");
@@ -33,7 +59,8 @@ export function getProviderConfig(
       clientId,
       clientSecret,
       redirectUri:
-        getEnv("GOOGLE_OAUTH_REDIRECT_URI") ?? defaultRedirect("google"),
+        getEnv("GOOGLE_OAUTH_REDIRECT_URI") ??
+        defaultRedirect("google", redirectBaseUrl),
       scope:
         "openid email https://www.googleapis.com/auth/calendar.readonly",
       extraAuthParams: {
@@ -54,7 +81,8 @@ export function getProviderConfig(
       clientId,
       clientSecret,
       redirectUri:
-        getEnv("TICKTICK_OAUTH_REDIRECT_URI") ?? defaultRedirect("ticktick"),
+        getEnv("TICKTICK_OAUTH_REDIRECT_URI") ??
+        defaultRedirect("ticktick", redirectBaseUrl),
       scope: "tasks:read tasks:write",
     };
   }
