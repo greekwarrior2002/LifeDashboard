@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Car, Wrench, Gauge, ChevronRight } from "lucide-react";
 import { GlassCard, CardHeader } from "@/components/ui/glass-card";
@@ -19,9 +20,12 @@ export function CarDashboard() {
         subtitle="2 vehicles · maintenance & logs"
         icon={<Car className="h-4 w-4 text-neon-amber" />}
         right={
-          <button className="flex h-7 items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.02] px-2 text-[11px] text-subtle hover:text-white">
+          <Link
+            href="/cars"
+            className="flex h-7 items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.02] px-2 text-[11px] text-subtle transition-colors hover:text-white"
+          >
             Service log <ChevronRight className="h-3 w-3" />
-          </button>
+          </Link>
         }
       />
 

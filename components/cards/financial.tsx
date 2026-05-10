@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   Bar,
   BarChart,
@@ -39,9 +40,12 @@ export function FinancialDashboard() {
         subtitle="May · stipend, TA, grading"
         icon={<Wallet className="h-4 w-4 text-neon-blue" />}
         right={
-          <button className="flex h-7 items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.02] px-2 text-[11px] text-subtle hover:text-white">
+          <Link
+            href="/finance"
+            className="flex h-7 items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.02] px-2 text-[11px] text-subtle transition-colors hover:text-white"
+          >
             Details <ArrowUpRight className="h-3 w-3" />
-          </button>
+          </Link>
         }
       />
 
