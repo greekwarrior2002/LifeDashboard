@@ -52,6 +52,13 @@ export async function GET(req: NextRequest) {
     });
     return { ...day, date, readiness };
   });
+  const allDays = Object.values(samples.days);
+  const daysWithSleep = allDays.filter((day) => !!day.sleep).length;
+  const latestSleepDate = allDays
+    .filter((day) => !!day.sleep)
+    .map((day) => day.date)
+    .sort()
+    .at(-1) ?? null;
 
   return NextResponse.json({
     connected,
@@ -59,6 +66,15 @@ export async function GET(req: NextRequest) {
     timezone,
     sleepTargetHours: user.health.sleepTargetHours,
     hrvBaselineMs: baseline,
+    diagnostics: {
+      storedDays: allDays.length,
+      daysWithSleep,
+      latestSleepDate,
+      seriesDaysWithSleep: series.filter((day) => "sleep" in day && !!day.sleep).length,
+      rawMetricKeys: Array.from(
+        new Set(allDays.flatMap((day) => Object.keys(day.raw ?? {}))),
+      ).slice(0, 25),
+    },
     series,
   });
 }

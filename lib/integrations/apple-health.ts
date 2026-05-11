@@ -138,46 +138,92 @@ function sampleValue(s: HAEMetricSample): number | null {
   return null;
 }
 
+function normaliseMetricName(name: string): string {
+  return name.trim().toLowerCase().replace(/[\s-]+/g, "_");
+}
+
+function isSleepMetric(name: string): boolean {
+  const normalised = normaliseMetricName(name);
+  return normalised === "sleep_analysis" || normalised === "sleep";
+}
+
+function isAsleepState(value: string | undefined): boolean {
+  if (!value) return true;
+  const normalised = value.trim().toLowerCase();
+  return ["asleep", "core", "rem", "deep", "unspecified"].includes(normalised);
+}
+
+function isInBedState(value: string | undefined): boolean {
+  return value?.trim().toLowerCase() === "in bed";
+}
+
+function sleepDurationHours(s: HAEMetricSample, start: Date | null, end: Date | null): number | null {
+  if (typeof s.asleep === "number") return s.asleep;
+  if (typeof s.totalSleep === "number") return s.totalSleep;
+  if (typeof s.qty === "number" && isAsleepState(s.value)) return s.qty;
+  if (start && end && isAsleepState(s.value)) {
+    return (end.getTime() - start.getTime()) / 3_600_000;
+  }
+  return null;
+}
+
+function inBedDurationHours(
+  s: HAEMetricSample,
+  asleepHours: number,
+  start: Date | null,
+  end: Date | null,
+): number {
+  if (typeof s.inBed === "number") return s.inBed;
+  if (typeof s.qty === "number" && isInBedState(s.value)) return s.qty;
+  if (start && end && isInBedState(s.value)) {
+    return (end.getTime() - start.getTime()) / 3_600_000;
+  }
+  return asleepHours;
+}
+
+function handleSleepMetric(
+  metric: HAEMetric,
+  timezone: string,
+  byDate: Map<string, Bucket>,
+): { handled: boolean; samples: number } {
+  let samples = 0;
+  for (const s of metric.data ?? []) {
+    const segmentStart = parseHAEDate(s.startDate) ?? parseHAEDate(s.date);
+    const segmentEnd = parseHAEDate(s.endDate);
+    const sleepStart = parseHAEDate(s.sleepStart) ?? parseHAEDate(s.inBedStart) ?? segmentStart;
+    const sleepEnd = parseHAEDate(s.sleepEnd) ?? parseHAEDate(s.inBedEnd) ?? segmentEnd;
+    const dateForBucket = sleepEnd ?? segmentEnd ?? segmentStart ?? parseHAEDate(s.date);
+    if (!dateForBucket) continue;
+
+    const asleep = sleepDurationHours(s, segmentStart, segmentEnd);
+    const inBed = inBedDurationHours(s, asleep ?? 0, segmentStart, segmentEnd);
+    if (asleep === null && !isInBedState(s.value)) continue;
+
+    const b = bucket(byDate, localDateKey(dateForBucket, timezone));
+    b.sleepBlocks.push({
+      inBedHours: Math.max(inBed, asleep ?? 0),
+      asleepHours: asleep ?? 0,
+      bedTime: localClockHours(sleepStart ?? segmentStart ?? dateForBucket, timezone),
+      wakeTime: localClockHours(sleepEnd ?? segmentEnd ?? dateForBucket, timezone),
+      sources: s.source ? [s.source] : undefined,
+    });
+    samples++;
+  }
+  return { handled: true, samples };
+}
+
 // Map HAE metric name → handler that updates the bucket for that day.
 function handleMetric(
   metric: HAEMetric,
   timezone: string,
   byDate: Map<string, Bucket>,
 ): { handled: boolean; samples: number } {
+  if (isSleepMetric(metric.name)) {
+    return handleSleepMetric(metric, timezone, byDate);
+  }
+
   let samples = 0;
-  switch (metric.name) {
-    case "sleep_analysis": {
-      for (const s of metric.data) {
-        const start =
-          parseHAEDate(s.sleepStart) ??
-          parseHAEDate(s.inBedStart) ??
-          parseHAEDate(s.startDate) ??
-          parseHAEDate(s.date);
-        const end =
-          parseHAEDate(s.sleepEnd) ??
-          parseHAEDate(s.inBedEnd) ??
-          parseHAEDate(s.endDate);
-        if (!start || !end) continue;
-        // Attribute the sleep block to the wake date.
-        const key = localDateKey(end, timezone);
-        const asleep =
-          typeof s.asleep === "number"
-            ? s.asleep
-            : typeof s.totalSleep === "number"
-              ? s.totalSleep
-              : (end.getTime() - start.getTime()) / 3_600_000;
-        const b = bucket(byDate, key);
-        b.sleepBlocks.push({
-          inBedHours: typeof s.inBed === "number" ? s.inBed : asleep,
-          asleepHours: asleep,
-          bedTime: localClockHours(start, timezone),
-          wakeTime: localClockHours(end, timezone),
-          sources: s.source ? [s.source] : undefined,
-        });
-        samples++;
-      }
-      return { handled: true, samples };
-    }
+  switch (normaliseMetricName(metric.name)) {
     case "heart_rate_variability": {
       for (const s of metric.data) {
         const v = sampleValue(s);
