@@ -156,7 +156,7 @@ export function CalendarTimeline() {
       />
 
       {loading ? (
-        <div className="mt-8 flex h-[440px] items-center justify-center text-[12px] text-muted">
+        <div className="mt-8 flex min-h-32 items-center justify-center text-[12px] text-muted">
           <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Loading...
         </div>
       ) : !connected ? (
@@ -333,7 +333,7 @@ function EventList({ events }: { events: ApiEvent[] }) {
 
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="mt-6 flex h-[400px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/[0.08] bg-white/[0.012] p-6 text-center">
+    <div className="mt-4 flex min-h-32 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/[0.08] bg-white/[0.012] p-5 text-center">
       <Plug className="h-5 w-5 text-muted" />
       <p className="text-[13px] text-white">{title}</p>
       <p className="max-w-xs break-words text-[12px] text-subtle">{body}</p>
