@@ -292,16 +292,20 @@ export function AppleHealthSetupPanel({
           2. In Health Auto Export, set Method to <span className="text-white">POST</span> and Content Type to <span className="text-white">JSON</span>.
         </li>
         <li>
-          3. Pick the metrics to export (Sleep, HRV,
-          Steps, Active Energy, Workouts is a good baseline).
+          3. Turn on daily summarization/aggregation if available. Large raw
+          multi-day exports can exceed the serverless upload limit.
         </li>
         <li>
-          4. Set Aggregation to <span className="text-white">Daily</span> and a
+          4. Pick only the core metrics first: Sleep, HRV, Resting Heart Rate,
+          Steps, Active Energy, Exercise Time, and Workouts.
+        </li>
+        <li>
+          5. Set Aggregation to <span className="text-white">Daily</span> and a
           schedule (hourly or every few hours works well).
         </li>
         <li>
-          5. Tap <span className="text-white">Export Now</span> once to push the
-          last 7–30 days. Cards on this dashboard light up within seconds.
+          6. For backfills, start with 1–2 days. If that works, export the rest
+          in small chunks.
         </li>
       </ol>
     </div>

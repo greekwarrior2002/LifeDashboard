@@ -8,9 +8,11 @@ import { verifyAppleHealthApiKey } from "@/lib/integrations/apple-health-token";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Health Auto Export's first sync can be ~1-2 MB. Cap higher than that, but
-// not enough to be useful as a DoS vector.
-const MAX_BODY_BYTES = 5 * 1024 * 1024;
+// Vercel Functions reject request bodies above 4.5 MB before the route can
+// reliably handle them. Keep our app-level cap below that so smaller oversized
+// exports can return a useful JSON error instead of a platform 413.
+const MAX_BODY_BYTES = 4 * 1024 * 1024;
+const MAX_BODY_MB = Math.round((MAX_BODY_BYTES / 1024 / 1024) * 10) / 10;
 
 function timingSafeMatch(a: string, b: string): boolean {
   const ab = Buffer.from(a);
@@ -24,8 +26,9 @@ export async function GET() {
     ok: true,
     endpoint: "apple_health_ingest",
     method: "POST",
+    maxPayloadMb: MAX_BODY_MB,
     detail:
-      "This URL is reachable. Configure Health Auto Export to POST JSON here with an Authorization: Bearer <key> header.",
+      "This URL is reachable. Configure Health Auto Export to POST JSON here with an Authorization: Bearer <key> header. Keep exports under the payload limit by using daily aggregation and only core metrics.",
   });
 }
 
@@ -63,12 +66,28 @@ export async function POST(req: NextRequest) {
 
   const lengthHeader = req.headers.get("content-length");
   if (lengthHeader && Number(lengthHeader) > MAX_BODY_BYTES) {
-    return NextResponse.json({ error: "payload_too_large" }, { status: 413 });
+    return NextResponse.json(
+      {
+        error: "payload_too_large",
+        maxPayloadMb: MAX_BODY_MB,
+        detail:
+          "This Health Auto Export payload is too large for the serverless function. Enable daily aggregation/summarization, select fewer metrics, or export a smaller date range.",
+      },
+      { status: 413 },
+    );
   }
 
   const text = await req.text();
   if (text.length > MAX_BODY_BYTES) {
-    return NextResponse.json({ error: "payload_too_large" }, { status: 413 });
+    return NextResponse.json(
+      {
+        error: "payload_too_large",
+        maxPayloadMb: MAX_BODY_MB,
+        detail:
+          "This Health Auto Export payload is too large for the serverless function. Enable daily aggregation/summarization, select fewer metrics, or export a smaller date range.",
+      },
+      { status: 413 },
+    );
   }
 
   let payload: HAEPayload;

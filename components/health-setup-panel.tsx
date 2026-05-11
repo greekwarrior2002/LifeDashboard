@@ -62,6 +62,11 @@ export function HealthSetupPanel({
         a native HealthKit app yet, and it does not fabricate health values when
         no iPhone sync has occurred.
       </div>
+      <div className="mt-3 rounded-lg border border-neon-amber/20 bg-neon-amber/[0.06] p-3 text-[12px] text-subtle">
+        Large raw exports can exceed serverless upload limits. Use daily
+        summarization and core metrics first, then backfill longer ranges in
+        small chunks.
+      </div>
     </GlassCard>
   );
 }
