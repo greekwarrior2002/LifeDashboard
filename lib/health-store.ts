@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   EMPTY_HEALTH_SAMPLES,
   ROLLUP_RETENTION_DAYS,
@@ -24,7 +25,94 @@ async function ensureDir(): Promise<void> {
   await fs.mkdir(DATA_DIR, { recursive: true });
 }
 
+function getSupabaseHealthUserId(): string | null {
+  return (
+    process.env.LIFEOS_HEALTH_USER_ID ||
+    process.env.LIFEOS_SUPABASE_USER_ID ||
+    null
+  );
+}
+
+function hasSupabaseHealthStore(): boolean {
+  return !!(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY &&
+    getSupabaseHealthUserId()
+  );
+}
+
+async function readSupabaseHealthSamples(): Promise<HealthSamples> {
+  const userId = getSupabaseHealthUserId();
+  if (!userId) return { ...EMPTY_HEALTH_SAMPLES, days: {} };
+
+  const supabase = getSupabaseAdminClient();
+  const { data: dayRows, error: dayError } = await supabase
+    .from("health_days")
+    .select("date,data")
+    .eq("user_id", userId)
+    .order("date", { ascending: true });
+  if (dayError) throw new Error(`health_days_read_failed: ${dayError.message}`);
+
+  const { data: logRow, error: logError } = await supabase
+    .from("health_ingest_log")
+    .select("last_at,metrics,samples")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (logError) throw new Error(`health_log_read_failed: ${logError.message}`);
+
+  const days: Record<string, DayRollup> = {};
+  for (const row of dayRows ?? []) {
+    const date = String(row.date);
+    days[date] = { ...(row.data as DayRollup), date };
+  }
+
+  return {
+    days,
+    lastIngest: logRow
+      ? {
+          at: String(logRow.last_at),
+          metrics: Number(logRow.metrics ?? 0),
+          samples: Number(logRow.samples ?? 0),
+        }
+      : null,
+  };
+}
+
+async function writeSupabaseHealthSamples(state: HealthSamples): Promise<void> {
+  const userId = getSupabaseHealthUserId();
+  if (!userId) throw new Error("LIFEOS_HEALTH_USER_ID is not set");
+  const supabase = getSupabaseAdminClient();
+  const rows = Object.values(state.days).map((day) => ({
+    user_id: userId,
+    date: day.date,
+    data: day,
+    ingested_at: state.lastIngest?.at ?? new Date().toISOString(),
+  }));
+
+  if (rows.length > 0) {
+    const { error } = await supabase
+      .from("health_days")
+      .upsert(rows, { onConflict: "user_id,date" });
+    if (error) throw new Error(`health_days_write_failed: ${error.message}`);
+  }
+
+  if (state.lastIngest) {
+    const { error } = await supabase.from("health_ingest_log").upsert(
+      {
+        user_id: userId,
+        last_at: state.lastIngest.at,
+        metrics: state.lastIngest.metrics,
+        samples: state.lastIngest.samples,
+      },
+      { onConflict: "user_id" },
+    );
+    if (error) throw new Error(`health_log_write_failed: ${error.message}`);
+  }
+}
+
 export async function readHealthSamples(): Promise<HealthSamples> {
+  if (hasSupabaseHealthStore()) return readSupabaseHealthSamples();
+
   try {
     const raw = await fs.readFile(FILE_PATH, "utf8");
     const parsed = JSON.parse(raw) as Partial<HealthSamples>;
@@ -41,6 +129,11 @@ export async function readHealthSamples(): Promise<HealthSamples> {
 }
 
 async function writeHealthSamples(state: HealthSamples): Promise<void> {
+  if (hasSupabaseHealthStore()) {
+    await writeSupabaseHealthSamples(state);
+    return;
+  }
+
   await ensureDir();
   const tmp = `${FILE_PATH}.${process.pid}.${Date.now()}.tmp`;
   await fs.writeFile(tmp, JSON.stringify(state, null, 2), "utf8");
@@ -119,6 +212,23 @@ export function ingestRollups(
 
 export async function clearHealthSamples(): Promise<void> {
   await chain(async () => {
+    if (hasSupabaseHealthStore()) {
+      const userId = getSupabaseHealthUserId();
+      if (!userId) return;
+      const supabase = getSupabaseAdminClient();
+      const { error: daysError } = await supabase
+        .from("health_days")
+        .delete()
+        .eq("user_id", userId);
+      if (daysError) throw new Error(`health_days_delete_failed: ${daysError.message}`);
+      const { error: logError } = await supabase
+        .from("health_ingest_log")
+        .delete()
+        .eq("user_id", userId);
+      if (logError) throw new Error(`health_log_delete_failed: ${logError.message}`);
+      return;
+    }
+
     try {
       await fs.unlink(FILE_PATH);
     } catch (err) {
@@ -129,7 +239,10 @@ export async function clearHealthSamples(): Promise<void> {
 
 export function getHealthDataDirInfo() {
   return {
-    dataDir: DATA_DIR,
-    ephemeral: !process.env.LIFEOS_DATA_DIR && !!process.env.VERCEL,
+    dataDir: hasSupabaseHealthStore() ? "supabase:health_days" : DATA_DIR,
+    ephemeral:
+      !hasSupabaseHealthStore() &&
+      !process.env.LIFEOS_DATA_DIR &&
+      !!process.env.VERCEL,
   };
 }
