@@ -7,15 +7,18 @@ import { RecoveryHealth } from "@/components/cards/recovery-health";
 import { SleepConsistency } from "@/components/cards/sleep-consistency";
 import { FinancialDashboard } from "@/components/cards/financial";
 import { CarDashboard } from "@/components/cards/car-dashboard";
-import { LifeBalance } from "@/components/cards/life-balance";
 import { AIInsights } from "@/components/cards/ai-insights";
 import { LifeTimeline } from "@/components/cards/life-timeline";
 import { getUser } from "@/lib/user-store";
+import { getLifeData } from "@/lib/life-data-store";
+import { deriveInsights } from "@/lib/life-data-shared";
 
 export const dynamic = "force-dynamic";
 
 export default async function MissionControl() {
   const user = await getUser();
+  const lifeData = await getLifeData();
+  const insights = deriveInsights(lifeData);
   const visible = user.visibleCards;
 
   const showTickTick = visible.ticktick;
@@ -57,7 +60,7 @@ export default async function MissionControl() {
         <div className="grid gap-5 lg:grid-cols-12">
           {showResearch ? (
             <div className={showHealth ? "lg:col-span-7" : "lg:col-span-12"}>
-              <ResearchCenter />
+              <ResearchCenter initialProjects={lifeData.researchProjects} />
             </div>
           ) : null}
           {showHealth ? (
@@ -74,22 +77,19 @@ export default async function MissionControl() {
       {showFinance || showJournal ? (
         <div className="grid gap-5 lg:grid-cols-12">
           {showFinance ? (
-            <div className="lg:col-span-6">
-              <FinancialDashboard />
+            <div className="lg:col-span-8">
+              <FinancialDashboard initialFinance={lifeData.finance} />
             </div>
           ) : null}
-          <div className="lg:col-span-3">
-            <LifeBalance />
-          </div>
-          <div className="lg:col-span-3">
-            <AIInsights />
+          <div className={showFinance ? "lg:col-span-4" : "lg:col-span-12"}>
+            <AIInsights insights={insights} />
           </div>
         </div>
       ) : null}
 
       {showCars ? <CarDashboard /> : null}
 
-      <LifeTimeline />
+      <LifeTimeline initialMilestones={lifeData.timeline} />
 
       <footer className="flex items-center justify-between pb-4 pt-2 text-[11px] text-muted">
         <span>Life OS · personal build</span>

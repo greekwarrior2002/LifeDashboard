@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { Sparkles, AlertTriangle, TrendingUp, CircleCheck } from "lucide-react";
 import { GlassCard, CardHeader } from "@/components/ui/glass-card";
-import { aiInsights } from "@/lib/mock-data";
+import { DEFAULT_LIFE_DATA, deriveInsights, type Insight } from "@/lib/life-data-shared";
 import { cn } from "@/lib/utils";
 
 const toneMap = {
@@ -12,17 +12,21 @@ const toneMap = {
   good: { Icon: CircleCheck, bg: "border-neon-emerald/20 bg-neon-emerald/[0.06]", color: "text-neon-emerald" },
 } as const;
 
-export function AIInsights() {
+export function AIInsights({
+  insights = deriveInsights(DEFAULT_LIFE_DATA),
+}: {
+  insights?: Insight[];
+}) {
   return (
     <GlassCard glow="blue" className="p-5">
       <CardHeader
         title="AI Insights"
-        subtitle="Demo insights · automation coming soon"
+        subtitle="Generated from dashboard data"
         icon={<Sparkles className="h-4 w-4 text-neon-blue" />}
       />
 
       <div className="mt-4 space-y-2">
-        {aiInsights.map((a, i) => {
+        {insights.map((a, i) => {
           const t = toneMap[a.tone as keyof typeof toneMap];
           const I = t.Icon;
           return (

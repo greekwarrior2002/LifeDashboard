@@ -1,6 +1,9 @@
 import { PageHeader } from "@/components/page-header";
 import { ResearchCenter } from "@/components/cards/research-center";
 import { GlassCard, CardHeader } from "@/components/ui/glass-card";
+import { getLifeData } from "@/lib/life-data-store";
+
+export const dynamic = "force-dynamic";
 
 const upcoming = [
   { date: "May 14", title: "REB resubmission — Omeprazole pilot", status: "Drafting" },
@@ -14,7 +17,8 @@ const pubs = [
   { title: "PPI use and post-exercise recovery", venue: "Working draft", year: 2025 },
 ];
 
-export default function ResearchPage() {
+export default async function ResearchPage() {
+  const lifeData = await getLifeData();
   return (
     <div className="mx-auto max-w-[1480px] space-y-5">
       <PageHeader
@@ -22,7 +26,7 @@ export default function ResearchPage() {
         title="Lab & Manuscripts"
         description="Three active studies, one manuscript in review, and conference deadlines tracked."
       />
-      <ResearchCenter />
+      <ResearchCenter initialProjects={lifeData.researchProjects} />
 
       <div className="grid gap-5 md:grid-cols-2">
         <GlassCard glow="blue" className="p-5">

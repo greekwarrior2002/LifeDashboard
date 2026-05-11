@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Inbox, ListTodo, ArrowUpRight, Loader2, Plug } from "lucide-react";
+import { Inbox, ListTodo, ArrowUpRight, Loader2, Plug, SlidersHorizontal } from "lucide-react";
 import { GlassCard, CardHeader } from "@/components/ui/glass-card";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +23,7 @@ type ApiResponse = {
   error?: string;
 };
 
-const tabKeys = ["today", "overdue", "unscheduled", "all"] as const;
+const tabKeys = ["focus", "today", "upcoming", "overdue", "all"] as const;
 type TabKey = (typeof tabKeys)[number];
 
 function isToday(d: Date): boolean {
@@ -35,29 +35,69 @@ function isToday(d: Date): boolean {
   );
 }
 
-function bucketTasks(tasks: TickTickTask[]) {
+function parseTaskDate(value?: string): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function isWithinDays(d: Date, days: number): boolean {
+  const now = new Date();
+  const end = new Date(now);
+  end.setDate(end.getDate() + days);
+  return d >= now && d <= end;
+}
+
+function matchesQuery(task: TickTickTask, query: string): boolean {
+  const terms = query
+    .split(",")
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean);
+  if (terms.length === 0) return true;
+  const haystack = [
+    task.title,
+    task.projectName,
+    ...(task.tags ?? []),
+  ].join(" ").toLowerCase();
+  return terms.some((term) => haystack.includes(term));
+}
+
+function bucketTasks(tasks: TickTickTask[], focusQuery: string) {
   const now = new Date();
   const open = tasks.filter((t) => t.status !== 2);
   const today: TickTickTask[] = [];
   const overdue: TickTickTask[] = [];
+  const upcoming: TickTickTask[] = [];
   const unscheduled: TickTickTask[] = [];
   for (const t of open) {
-    if (!t.dueDate) {
+    const d = parseTaskDate(t.dueDate);
+    if (!d) {
       unscheduled.push(t);
       continue;
     }
-    const d = new Date(t.dueDate);
-    if (Number.isNaN(d.getTime())) {
-      unscheduled.push(t);
-    } else if (d < now && !isToday(d)) {
+    if (d < now && !isToday(d)) {
       overdue.push(t);
     } else if (isToday(d)) {
       today.push(t);
+    } else if (isWithinDays(d, 14)) {
+      upcoming.push(t);
     } else {
-      unscheduled.push(t);
+      upcoming.push(t);
     }
   }
-  return { today, overdue, unscheduled, all: open };
+  const focus = open.filter((t) => {
+    const due = parseTaskDate(t.dueDate);
+    return matchesQuery(t, focusQuery) && (t.priority === 5 || t.priority === 3 || !due || isWithinDays(due, 14));
+  });
+  const byDate = (a: TickTickTask, b: TickTickTask) => (parseTaskDate(a.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER) - (parseTaskDate(b.dueDate)?.getTime() ?? Number.MAX_SAFE_INTEGER);
+  return {
+    focus: focus.sort(byDate),
+    today: today.sort(byDate),
+    upcoming: upcoming.sort(byDate),
+    overdue: overdue.sort(byDate),
+    unscheduled,
+    all: open.sort(byDate),
+  };
 }
 
 function dueLabel(t: TickTickTask): string {
@@ -80,7 +120,17 @@ function dueLabel(t: TickTickTask): string {
 export function TickTickPanel() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [active, setActive] = useState<TabKey>("today");
+  const [active, setActive] = useState<TabKey>("focus");
+  const [focusQuery, setFocusQuery] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  useEffect(() => {
+    setFocusQuery(localStorage.getItem("lifeos_ticktick_focus") ?? "");
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("lifeos_ticktick_focus", focusQuery);
+  }, [focusQuery]);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,12 +152,13 @@ export function TickTickPanel() {
     };
   }, []);
 
-  const buckets = useMemo(() => bucketTasks(data?.tasks ?? []), [data]);
+  const buckets = useMemo(() => bucketTasks(data?.tasks ?? [], focusQuery), [data, focusQuery]);
 
   const tabs: Array<{ key: TabKey; label: string; count: number }> = [
+    { key: "focus", label: "Focus", count: buckets.focus.length },
     { key: "today", label: "Today", count: buckets.today.length },
+    { key: "upcoming", label: "Next", count: buckets.upcoming.length },
     { key: "overdue", label: "Overdue", count: buckets.overdue.length },
-    { key: "unscheduled", label: "No due", count: buckets.unscheduled.length },
     { key: "all", label: "All", count: buckets.all.length },
   ];
 
@@ -125,12 +176,21 @@ export function TickTickPanel() {
         }
         icon={<ListTodo className="h-4 w-4 text-neon-violet" />}
         right={
-          <Link
-            href="/settings"
-            className="flex h-7 items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.02] px-2 text-[11px] text-subtle transition-colors hover:text-white"
-          >
-            Manage <ArrowUpRight className="h-3 w-3" />
-          </Link>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setSettingsOpen((v) => !v)}
+              className="flex h-7 items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.02] px-2 text-[11px] text-subtle transition-colors hover:text-white"
+              aria-label="Tune TickTick focus"
+            >
+              <SlidersHorizontal className="h-3 w-3" />
+            </button>
+            <Link
+              href="/settings"
+              className="flex h-7 items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.02] px-2 text-[11px] text-subtle transition-colors hover:text-white"
+            >
+              Manage <ArrowUpRight className="h-3 w-3" />
+            </Link>
+          </div>
         }
       />
 
@@ -185,11 +245,18 @@ export function TickTickPanel() {
               </button>
             ))}
           </div>
-          <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
-            TickTick's Open API returns project task data. The special TickTick
-            Inbox may not be exposed by the public API, so this tab shows open
-            tasks without a due date from readable projects.
-          </p>
+          {settingsOpen ? (
+            <label className="mt-2 block rounded-lg border border-white/[0.05] bg-white/[0.015] p-2">
+              <span className="text-[10px] uppercase tracking-widest text-muted">Focus keywords</span>
+              <input
+                value={focusQuery}
+                onChange={(e) => setFocusQuery(e.target.value)}
+                placeholder="research, thesis, med, urgent"
+                className="mt-1 h-8 w-full bg-transparent text-[12px] text-white outline-none placeholder:text-muted"
+              />
+              <span className="text-[10.5px] text-muted">Comma-separated project, tag, or title terms. Blank shows high priority, no-date, and upcoming tasks.</span>
+            </label>
+          ) : null}
 
           <div className="mt-3 flex-1 space-y-1.5 overflow-y-auto pr-1">
             {visible.length === 0 ? (

@@ -1,7 +1,11 @@
 import { PageHeader } from "@/components/page-header";
 import { LifeTimeline } from "@/components/cards/life-timeline";
+import { getLifeData } from "@/lib/life-data-store";
 
-export default function TimelinePage() {
+export const dynamic = "force-dynamic";
+
+export default async function TimelinePage() {
+  const lifeData = await getLifeData();
   return (
     <div className="mx-auto max-w-[1480px] space-y-5">
       <PageHeader
@@ -9,7 +13,7 @@ export default function TimelinePage() {
         title="Life arc"
         description="Milestones, conferences, publications, applications, trips, and long-term goals — one continuous thread."
       />
-      <LifeTimeline />
+      <LifeTimeline initialMilestones={lifeData.timeline} />
     </div>
   );
 }
