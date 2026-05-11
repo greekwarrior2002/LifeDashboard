@@ -6,6 +6,7 @@ import {
   Copy,
   Eye,
   EyeOff,
+  Info,
   Loader2,
   Plug,
   RefreshCw,
@@ -23,6 +24,8 @@ type Props = {
 export type ConnectResponse = {
   apiKey: string;
   webhookUrl: string;
+  fallbackUrl?: string;
+  warnings?: string[];
 };
 
 export function AppleHealthConnect({
@@ -128,10 +131,14 @@ export function AppleHealthConnect({
 export function AppleHealthSetupPanel({
   apiKey,
   webhookUrl,
+  fallbackUrl,
+  warnings,
   onClose,
 }: {
   apiKey: string;
   webhookUrl: string;
+  fallbackUrl?: string;
+  warnings?: string[];
   onClose?: () => void;
 }) {
   const [show, setShow] = useState(false);
@@ -154,7 +161,8 @@ export function AppleHealthSetupPanel({
           </p>
           <p className="text-[11px] text-muted">
             Open Health Auto Export on iOS → Automations → REST API → Add
-            destination → paste both values below.
+            destination. Paste the webhook into the URL field, then add an
+            Authorization header.
           </p>
         </div>
         {onClose ? (
@@ -167,6 +175,18 @@ export function AppleHealthSetupPanel({
           </button>
         ) : null}
       </div>
+
+      {webhookUrl.includes("localhost") || webhookUrl.startsWith("http://") ? (
+        <div className="flex items-start gap-2 rounded-lg border border-neon-amber/25 bg-neon-amber/[0.08] p-3 text-[11px] leading-relaxed text-neon-amber">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            This URL is not a public HTTPS address. Health Auto Export on your
+            iPhone will reject localhost or plain HTTP URLs. Set{" "}
+            <code className="font-mono">LIFEOS_PUBLIC_URL</code> to your
+            deployed HTTPS URL, then reconnect Apple Health.
+          </span>
+        </div>
+      ) : null}
 
       <div className="space-y-2">
         <Field label="Webhook URL" value={webhookUrl}>
@@ -185,7 +205,25 @@ export function AppleHealthSetupPanel({
         </Field>
 
         <Field
-          label="Authorization header"
+          label="Header name"
+          value="Authorization"
+        >
+          <button
+            type="button"
+            onClick={() => copy("key", "Authorization")}
+            className="flex h-7 items-center gap-1 rounded-md border border-white/[0.08] px-2 text-[11px] text-subtle hover:text-white"
+          >
+            {copied === "key" ? (
+              <Check className="h-3 w-3 text-neon-emerald" />
+            ) : (
+              <Copy className="h-3 w-3" />
+            )}
+            {copied === "key" ? "Copied" : "Copy"}
+          </button>
+        </Field>
+
+        <Field
+          label="Header value"
           value={show ? `Bearer ${apiKey}` : `Bearer ${"•".repeat(40)}`}
         >
           <button
@@ -198,30 +236,58 @@ export function AppleHealthSetupPanel({
           </button>
           <button
             type="button"
-            onClick={() => copy("key", `Bearer ${apiKey}`)}
+            onClick={() => copy("url", `Bearer ${apiKey}`)}
             className="flex h-7 items-center gap-1 rounded-md border border-white/[0.08] px-2 text-[11px] text-subtle hover:text-white"
           >
-            {copied === "key" ? (
+            {copied === "url" ? (
               <Check className="h-3 w-3 text-neon-emerald" />
             ) : (
               <Copy className="h-3 w-3" />
             )}
-            {copied === "key" ? "Copied" : "Copy"}
+            {copied === "url" ? "Copied" : "Copy"}
           </button>
         </Field>
+
+        {fallbackUrl ? (
+          <Field label="Fallback URL (only if headers are unavailable)" value={fallbackUrl}>
+            <button
+              type="button"
+              onClick={() => copy("url", fallbackUrl)}
+              className="flex h-7 items-center gap-1 rounded-md border border-white/[0.08] px-2 text-[11px] text-subtle hover:text-white"
+            >
+              {copied === "url" ? (
+                <Check className="h-3 w-3 text-neon-emerald" />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
+              {copied === "url" ? "Copied" : "Copy"}
+            </button>
+          </Field>
+        ) : null}
       </div>
+
+      {warnings?.length ? (
+        <div className="rounded-lg border border-neon-amber/25 bg-neon-amber/[0.08] p-3 text-[11px] leading-relaxed text-neon-amber">
+          {warnings.map((warning) => (
+            <p key={warning}>{warning}</p>
+          ))}
+        </div>
+      ) : null}
 
       <ol className="space-y-1 text-[11px] text-muted">
         <li>
-          1. In Health Auto Export, pick the metrics to export (Sleep, HRV,
+          1. In Health Auto Export, set Method to <span className="text-white">POST</span> and Content Type to <span className="text-white">JSON</span>.
+        </li>
+        <li>
+          2. Pick the metrics to export (Sleep, HRV,
           Steps, Active Energy, Workouts is a good baseline).
         </li>
         <li>
-          2. Set Aggregation to <span className="text-white">Daily</span> and a
+          3. Set Aggregation to <span className="text-white">Daily</span> and a
           schedule (hourly or every few hours works well).
         </li>
         <li>
-          3. Tap <span className="text-white">Export Now</span> once to push the
+          4. Tap <span className="text-white">Export Now</span> once to push the
           last 7–30 days. Cards on this dashboard light up within seconds.
         </li>
       </ol>

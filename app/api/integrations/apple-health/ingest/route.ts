@@ -22,10 +22,11 @@ function timingSafeMatch(a: string, b: string): boolean {
 export async function POST(req: NextRequest) {
   const header = req.headers.get("authorization") ?? "";
   const match = /^Bearer\s+(.+)$/.exec(header.trim());
-  if (!match) {
+  const queryToken = req.nextUrl.searchParams.get("token")?.trim() ?? "";
+  if (!match && !queryToken) {
     return NextResponse.json({ error: "missing_bearer" }, { status: 401 });
   }
-  const presented = match[1];
+  const presented = match?.[1] ?? queryToken;
   const presentedFingerprint = createHash("sha256").update(presented).digest("hex");
 
   const found = await findUserByApiKeyFingerprint(presentedFingerprint);

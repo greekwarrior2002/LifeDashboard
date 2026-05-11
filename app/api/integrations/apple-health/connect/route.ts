@@ -9,12 +9,44 @@ import type { IntegrationRecord } from "@/lib/types/user";
 
 export const runtime = "nodejs";
 
-function buildWebhookUrl(req: NextRequest): string {
+function isLocalBase(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+  } catch {
+    return true;
+  }
+}
+
+function buildWebhookUrl(req: NextRequest): { url: string; warnings: string[] } {
   const explicit = process.env.LIFEOS_PUBLIC_URL;
-  const base = explicit && explicit.length > 0
-    ? explicit.replace(/\/$/, "")
-    : new URL(req.url).origin;
-  return `${base}/api/integrations/apple-health/ingest`;
+  const requestOrigin = new URL(req.url).origin;
+  const explicitBase = explicit?.replace(/\/$/, "");
+  const requestBase = requestOrigin.replace(/\/$/, "");
+  const base = explicitBase && !isLocalBase(explicitBase)
+    ? explicitBase
+    : requestBase;
+  const warnings: string[] = [];
+
+  if (explicitBase && isLocalBase(explicitBase) && !isLocalBase(requestBase)) {
+    warnings.push(
+      "LIFEOS_PUBLIC_URL is set to localhost, so the app used the deployed request URL instead. Update LIFEOS_PUBLIC_URL to your https deployment URL before reconnecting integrations.",
+    );
+  }
+  if (isLocalBase(base)) {
+    warnings.push(
+      "This webhook points at localhost. Health Auto Export on your iPhone needs a publicly reachable https URL, such as your Vercel deployment URL.",
+    );
+  } else if (!base.startsWith("https://")) {
+    warnings.push(
+      "Health Auto Export may reject non-HTTPS webhook URLs. Use your https deployment URL for Apple Health sync.",
+    );
+  }
+
+  return {
+    url: `${base}/api/integrations/apple-health/ingest`,
+    warnings,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -32,10 +64,13 @@ export async function POST(req: NextRequest) {
     apiKeyFingerprint: fingerprint,
   };
   const next = await setIntegration("apple_health", record);
+  const webhook = buildWebhookUrl(req);
 
   const res = NextResponse.json({
     apiKey,
-    webhookUrl: buildWebhookUrl(req),
+    webhookUrl: webhook.url,
+    fallbackUrl: `${webhook.url}?token=${encodeURIComponent(apiKey)}`,
+    warnings: webhook.warnings,
     user: toPublic(next),
   });
   setIntegrationCookie(res, "apple_health", record);

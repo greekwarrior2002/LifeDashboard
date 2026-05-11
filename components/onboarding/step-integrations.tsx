@@ -94,6 +94,8 @@ export function StepIntegrations({ state, setState, refreshUser }: StepRenderPro
           <AppleHealthSetupPanel
             apiKey={appleReveal.apiKey}
             webhookUrl={appleReveal.webhookUrl}
+            fallbackUrl={appleReveal.fallbackUrl}
+            warnings={appleReveal.warnings}
             onClose={() => setAppleReveal(null)}
           />
         ) : null}
