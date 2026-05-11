@@ -19,6 +19,16 @@ function timingSafeMatch(a: string, b: string): boolean {
   return timingSafeEqual(ab, bb);
 }
 
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    endpoint: "apple_health_ingest",
+    method: "POST",
+    detail:
+      "This URL is reachable. Configure Health Auto Export to POST JSON here with an Authorization: Bearer <key> header.",
+  });
+}
+
 export async function POST(req: NextRequest) {
   const header = req.headers.get("authorization") ?? "";
   const match = /^Bearer\s+(.+)$/.exec(header.trim());

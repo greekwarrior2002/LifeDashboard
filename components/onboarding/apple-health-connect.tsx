@@ -190,6 +190,14 @@ export function AppleHealthSetupPanel({
 
       <div className="space-y-2">
         <Field label="Webhook URL" value={webhookUrl}>
+          <a
+            href={webhookUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex h-7 items-center rounded-md border border-white/[0.08] px-2 text-[11px] text-subtle hover:text-white"
+          >
+            Test
+          </a>
           <button
             type="button"
             onClick={() => copy("url", webhookUrl)}
@@ -276,18 +284,23 @@ export function AppleHealthSetupPanel({
 
       <ol className="space-y-1 text-[11px] text-muted">
         <li>
-          1. In Health Auto Export, set Method to <span className="text-white">POST</span> and Content Type to <span className="text-white">JSON</span>.
+          1. Tap <span className="text-white">Test</span> above first. A
+          browser tab should show a small JSON response. If it does not, the URL
+          is malformed, blocked, or not publicly reachable.
         </li>
         <li>
-          2. Pick the metrics to export (Sleep, HRV,
+          2. In Health Auto Export, set Method to <span className="text-white">POST</span> and Content Type to <span className="text-white">JSON</span>.
+        </li>
+        <li>
+          3. Pick the metrics to export (Sleep, HRV,
           Steps, Active Energy, Workouts is a good baseline).
         </li>
         <li>
-          3. Set Aggregation to <span className="text-white">Daily</span> and a
+          4. Set Aggregation to <span className="text-white">Daily</span> and a
           schedule (hourly or every few hours works well).
         </li>
         <li>
-          4. Tap <span className="text-white">Export Now</span> once to push the
+          5. Tap <span className="text-white">Export Now</span> once to push the
           last 7–30 days. Cards on this dashboard light up within seconds.
         </li>
       </ol>
