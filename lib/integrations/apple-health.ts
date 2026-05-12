@@ -119,7 +119,8 @@ function localClockHours(d: Date, timezone: string): number {
 // --- Per-day accumulator ---------------------------------------------------
 
 type SleepSummary = {
-  asleepHours?: number;
+  totalHours?: number;
+  stageHours?: number;
   inBedHours?: number;
   bedTime?: number;
   wakeTime?: number;
@@ -320,8 +321,8 @@ function handleSleepSummaryMetric(
     if (value === null || value <= 0 || !d) continue;
 
     const summary = bucket(byDate, localDateKey(d, timezone)).sleepSummary;
-    if (kind === "total") summary.asleepHours = value;
-    if (kind === "stage") summary.asleepHours = (summary.asleepHours ?? 0) + value;
+    if (kind === "total") summary.totalHours = value;
+    if (kind === "stage") summary.stageHours = (summary.stageHours ?? 0) + value;
     if (kind === "inBed") summary.inBedHours = value;
 
     const start = parseHAEDate(s.sleepStart) ?? parseHAEDate(s.inBedStart) ?? parseHAEDate(s.startDate);
@@ -455,11 +456,12 @@ function reduceSleepBlocks(blocks: SleepDay[], summary: SleepSummary): SleepDay 
     };
   }
 
-  if (!summary.asleepHours || summary.asleepHours <= 0) return undefined;
-  const inBedHours = Math.max(summary.inBedHours ?? summary.asleepHours, summary.asleepHours);
+  const asleepHours = summary.totalHours ?? summary.stageHours;
+  if (!asleepHours || asleepHours <= 0) return undefined;
+  const inBedHours = Math.max(summary.inBedHours ?? asleepHours, asleepHours);
   return {
     inBedHours,
-    asleepHours: summary.asleepHours,
+    asleepHours,
     bedTime: summary.bedTime ?? 0,
     wakeTime: summary.wakeTime ?? 0,
     sources: summary.sources.length ? Array.from(new Set(summary.sources)) : undefined,
