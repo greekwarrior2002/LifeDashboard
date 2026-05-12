@@ -194,8 +194,8 @@ function sleepDurationHours(s: HAEMetricSample, start: Date | null, end: Date | 
   const total = totalSleepDurationHours(s);
   if (total !== null) return total;
 
-  const asleep = numericField(s, ["asleep", "Sleep Analysis [Asleep] (hr)"]);
-  if (asleep !== null && asleep > 0) return asleep;
+  // Apple Health Auto Export's Asleep column is often 0 for every row, so do
+  // not use either the CSV column or its JSON alias as an asleep duration.
   if (typeof s.qty === "number" && isAsleepState(s.value)) return s.qty;
   if (start && end && isAsleepState(s.value)) {
     return (end.getTime() - start.getTime()) / 3_600_000;
