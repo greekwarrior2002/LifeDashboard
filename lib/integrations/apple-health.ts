@@ -176,7 +176,7 @@ function totalSleepDurationHours(s: HAEMetricSample): number | null {
     "Sleep Analysis [Total] (hr)",
     "Sleep Analysis Total (hr)",
   ]);
-  if (total !== null) return total;
+  if (total !== null) return total > 0 ? total : null;
 
   const stageValues = [
     numericField(s, ["Sleep Analysis [Core] (hr)", "Sleep Analysis Core (hr)"]),
@@ -184,7 +184,8 @@ function totalSleepDurationHours(s: HAEMetricSample): number | null {
     numericField(s, ["Sleep Analysis [REM] (hr)", "Sleep Analysis REM (hr)"]),
   ];
   if (stageValues.every((v): v is number => v !== null)) {
-    return stageValues.reduce((sum, value) => sum + value, 0);
+    const stageTotal = stageValues.reduce((sum, value) => sum + value, 0);
+    return stageTotal > 0 ? stageTotal : null;
   }
 
   return null;
@@ -196,9 +197,10 @@ function sleepDurationHours(s: HAEMetricSample, start: Date | null, end: Date | 
 
   // Apple Health Auto Export's Asleep column is often 0 for every row, so do
   // not use either the CSV column or its JSON alias as an asleep duration.
-  if (typeof s.qty === "number" && isAsleepState(s.value)) return s.qty;
+  if (typeof s.qty === "number" && s.qty > 0 && isAsleepState(s.value)) return s.qty;
   if (start && end && isAsleepState(s.value)) {
-    return (end.getTime() - start.getTime()) / 3_600_000;
+    const duration = (end.getTime() - start.getTime()) / 3_600_000;
+    return duration > 0 ? duration : null;
   }
   return null;
 }
@@ -237,13 +239,13 @@ function handleSleepMetric(
     if (!dateForBucket) continue;
 
     const asleep = sleepDurationHours(s, segmentStart, segmentEnd);
-    const inBed = inBedDurationHours(s, asleep ?? 0, segmentStart, segmentEnd);
-    if (asleep === null && !isInBedState(s.value)) continue;
+    if (asleep === null || asleep <= 0) continue;
 
+    const inBed = inBedDurationHours(s, asleep, segmentStart, segmentEnd);
     const b = bucket(byDate, localDateKey(dateForBucket, timezone));
     b.sleepBlocks.push({
-      inBedHours: Math.max(inBed, asleep ?? 0),
-      asleepHours: asleep ?? 0,
+      inBedHours: Math.max(inBed, asleep),
+      asleepHours: asleep,
       bedTime: localClockHours(sleepStart ?? segmentStart ?? dateForBucket, timezone),
       wakeTime: localClockHours(sleepEnd ?? segmentEnd ?? dateForBucket, timezone),
       sources: s.source ? [s.source] : undefined,
@@ -350,13 +352,14 @@ function handleMetric(
 }
 
 function reduceSleepBlocks(blocks: SleepDay[]): SleepDay | undefined {
-  if (blocks.length === 0) return undefined;
+  const validBlocks = blocks.filter((block) => block.asleepHours > 0);
+  if (validBlocks.length === 0) return undefined;
   // Pick the longest asleep block as the "main" sleep, sum durations across all.
-  const main = blocks.reduce((a, b) => (b.asleepHours > a.asleepHours ? b : a));
-  const inBedHours = blocks.reduce((sum, b) => sum + b.inBedHours, 0);
-  const asleepHours = blocks.reduce((sum, b) => sum + b.asleepHours, 0);
+  const main = validBlocks.reduce((a, b) => (b.asleepHours > a.asleepHours ? b : a));
+  const inBedHours = validBlocks.reduce((sum, b) => sum + b.inBedHours, 0);
+  const asleepHours = validBlocks.reduce((sum, b) => sum + b.asleepHours, 0);
   const sources = Array.from(
-    new Set(blocks.flatMap((b) => b.sources ?? [])),
+    new Set(validBlocks.flatMap((b) => b.sources ?? [])),
   );
   return {
     inBedHours,

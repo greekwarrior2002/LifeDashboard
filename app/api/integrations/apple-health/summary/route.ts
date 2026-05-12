@@ -23,6 +23,16 @@ function lastNDates(n: number, timezone: string): string[] {
   return out;
 }
 
+function hasValidSleep(day: DayRollup): boolean {
+  return !!day.sleep && day.sleep.asleepHours > 0;
+}
+
+function withoutZeroSleep(day: DayRollup): DayRollup {
+  if (hasValidSleep(day)) return day;
+  const { sleep: _sleep, ...rest } = day;
+  return rest;
+}
+
 export async function GET(req: NextRequest) {
   const auth = await requireSession(req);
   if (!auth.ok) return auth.response;
@@ -40,22 +50,24 @@ export async function GET(req: NextRequest) {
   const baselineDates = lastNDates(14, timezone);
   const baselineDays = baselineDates
     .map((d) => samples.days[d])
-    .filter((d): d is DayRollup => !!d);
+    .filter((d): d is DayRollup => !!d)
+    .map(withoutZeroSleep);
   const baseline = hrvBaseline(baselineDays);
 
   const series = dates.map((date) => {
     const day = samples.days[date];
     if (!day) return { date };
-    const readiness = computeReadiness(day, {
+    const normalisedDay = withoutZeroSleep(day);
+    const readiness = computeReadiness(normalisedDay, {
       sleepTargetHours: user.health.sleepTargetHours,
       hrvBaselineMs: baseline,
     });
-    return { ...day, date, readiness };
+    return { ...normalisedDay, date, readiness };
   });
-  const allDays = Object.values(samples.days);
-  const daysWithSleep = allDays.filter((day) => !!day.sleep).length;
+  const allDays = Object.values(samples.days).map(withoutZeroSleep);
+  const daysWithSleep = allDays.filter(hasValidSleep).length;
   const latestSleepDate = allDays
-    .filter((day) => !!day.sleep)
+    .filter(hasValidSleep)
     .map((day) => day.date)
     .sort()
     .at(-1) ?? null;
