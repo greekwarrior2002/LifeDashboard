@@ -5,6 +5,7 @@
 import type { DayRollup, SleepDay, WorkoutSample } from "@/lib/types/health";
 
 export type HAEMetricSample = {
+  [key: string]: unknown;
   date?: string;
   startDate?: string;
   endDate?: string;
@@ -55,7 +56,7 @@ export type HAEPayload = {
 function parseHAEDate(input: string | undefined): Date | null {
   if (!input) return null;
   // Replace the space between date and time with 'T' and convert the offset
-  // "-0400" → "-04:00" so it parses as ISO-8601.
+  // "-0400" -> "-04:00" so it parses as ISO-8601.
   const iso = input
     .replace(" ", "T")
     .replace(/ (-?\d{2})(\d{2})$/, "$1:$2")
@@ -138,6 +139,18 @@ function sampleValue(s: HAEMetricSample): number | null {
   return null;
 }
 
+function numericField(s: HAEMetricSample, names: string[]): number | null {
+  for (const name of names) {
+    const value = s[name];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && value.trim() !== "") {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return null;
+}
+
 function normaliseMetricName(name: string): string {
   return name.trim().toLowerCase().replace(/[\s-]+/g, "_");
 }
@@ -157,9 +170,32 @@ function isInBedState(value: string | undefined): boolean {
   return value?.trim().toLowerCase() === "in bed";
 }
 
+function totalSleepDurationHours(s: HAEMetricSample): number | null {
+  const total = numericField(s, [
+    "totalSleep",
+    "Sleep Analysis [Total] (hr)",
+    "Sleep Analysis Total (hr)",
+  ]);
+  if (total !== null) return total;
+
+  const stageValues = [
+    numericField(s, ["Sleep Analysis [Core] (hr)", "Sleep Analysis Core (hr)"]),
+    numericField(s, ["Sleep Analysis [Deep] (hr)", "Sleep Analysis Deep (hr)"]),
+    numericField(s, ["Sleep Analysis [REM] (hr)", "Sleep Analysis REM (hr)"]),
+  ];
+  if (stageValues.every((v): v is number => v !== null)) {
+    return stageValues.reduce((sum, value) => sum + value, 0);
+  }
+
+  return null;
+}
+
 function sleepDurationHours(s: HAEMetricSample, start: Date | null, end: Date | null): number | null {
-  if (typeof s.asleep === "number") return s.asleep;
-  if (typeof s.totalSleep === "number") return s.totalSleep;
+  const total = totalSleepDurationHours(s);
+  if (total !== null) return total;
+
+  const asleep = numericField(s, ["asleep", "Sleep Analysis [Asleep] (hr)"]);
+  if (asleep !== null && asleep > 0) return asleep;
   if (typeof s.qty === "number" && isAsleepState(s.value)) return s.qty;
   if (start && end && isAsleepState(s.value)) {
     return (end.getTime() - start.getTime()) / 3_600_000;
@@ -173,7 +209,12 @@ function inBedDurationHours(
   start: Date | null,
   end: Date | null,
 ): number {
-  if (typeof s.inBed === "number") return s.inBed;
+  const inBed = numericField(s, [
+    "inBed",
+    "Sleep Analysis [In Bed] (hr)",
+    "Sleep Analysis In Bed (hr)",
+  ]);
+  if (inBed !== null) return inBed;
   if (typeof s.qty === "number" && isInBedState(s.value)) return s.qty;
   if (start && end && isInBedState(s.value)) {
     return (end.getTime() - start.getTime()) / 3_600_000;
@@ -212,7 +253,7 @@ function handleSleepMetric(
   return { handled: true, samples };
 }
 
-// Map HAE metric name → handler that updates the bucket for that day.
+// Map HAE metric name -> handler that updates the bucket for that day.
 function handleMetric(
   metric: HAEMetric,
   timezone: string,
