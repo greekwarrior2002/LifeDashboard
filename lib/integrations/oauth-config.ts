@@ -94,23 +94,5 @@ export function getProviderConfig(
     };
   }
 
-  if (provider === "ticktick") {
-    const clientId = getEnv("TICKTICK_OAUTH_CLIENT_ID");
-    const clientSecret = getEnv("TICKTICK_OAUTH_CLIENT_SECRET");
-    if (!clientId || !clientSecret) return null;
-    return {
-      authorizeUrl: "https://ticktick.com/oauth/authorize",
-      tokenUrl: "https://ticktick.com/oauth/token",
-      clientId,
-      clientSecret,
-      redirectUri: redirectUri(
-        "ticktick",
-        "TICKTICK_OAUTH_REDIRECT_URI",
-        redirectBaseUrl,
-      ),
-      scope: "tasks:read tasks:write",
-    };
-  }
-
   return null;
 }

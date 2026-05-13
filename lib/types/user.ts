@@ -11,7 +11,6 @@ export type UserGoals = {
 };
 
 export type CardKey =
-  | "ticktick"
   | "calendar"
   | "health"
   | "finance"
@@ -33,7 +32,7 @@ export type CalendarPreferences = {
   updatedAt: string | null;
 };
 
-export type IntegrationProvider = "google" | "ticktick" | "apple_health";
+export type IntegrationProvider = "google" | "apple_health";
 
 export type EncryptedTokens = {
   ciphertext: string;
@@ -79,7 +78,6 @@ export const DEFAULT_USER_STATE: UserState = {
     focusAreas: [],
   },
   visibleCards: {
-    ticktick: true,
     calendar: true,
     health: true,
     finance: true,

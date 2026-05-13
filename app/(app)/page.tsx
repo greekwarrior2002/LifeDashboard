@@ -1,6 +1,5 @@
 import { MorningBriefing } from "@/components/cards/morning-briefing";
 import { PrioritiesCard } from "@/components/cards/priorities";
-import { TickTickPanel } from "@/components/cards/ticktick-panel";
 import { CalendarTimeline } from "@/components/cards/calendar-timeline";
 import { ResearchCenter } from "@/components/cards/research-center";
 import { RecoveryHealth } from "@/components/cards/recovery-health";
@@ -10,7 +9,6 @@ import { CarDashboard } from "@/components/cards/car-dashboard";
 import { AIInsights } from "@/components/cards/ai-insights";
 import { LifeTimeline } from "@/components/cards/life-timeline";
 import { ConnectionHub } from "@/components/cards/connection-hub";
-import { HomeAutomationCard } from "@/components/cards/home-automation";
 import { HealthSetupPanel } from "@/components/health-setup-panel";
 import { getUser } from "@/lib/user-store";
 import { getLifeData } from "@/lib/life-data-store";
@@ -26,31 +24,24 @@ export default async function MissionControl() {
   const insights = deriveInsights(lifeData);
   const visible = user.visibleCards;
 
-  const showTickTick = visible.ticktick;
   const showCalendar = visible.calendar;
   const showResearch = visible.research;
   const showHealth = visible.health;
   const showFinance = visible.finance;
   const showCars = visible.cars;
   const showJournal = visible.journal;
-  const ticktickConnected = !!user.integrations.ticktick;
   const calendarConnected = !!user.integrations.google;
   const healthConnected = !!user.integrations.apple_health;
-  const showTickTickPanel = showTickTick && ticktickConnected;
   const showCalendarPanel = showCalendar && calendarConnected;
   const showConnectionHub =
-    (showTickTick && !ticktickConnected) ||
     (showCalendar && !calendarConnected) ||
     (showHealth && !healthConnected);
 
   const row2Span = (() => {
-    if (showTickTickPanel && showCalendarPanel) return ["lg:col-span-5", "lg:col-span-3", "lg:col-span-4", null] as const;
-    if (showTickTickPanel && showConnectionHub) return ["lg:col-span-5", "lg:col-span-3", null, "lg:col-span-4"] as const;
-    if (showCalendarPanel && showConnectionHub) return ["lg:col-span-4", null, "lg:col-span-5", "lg:col-span-3"] as const;
-    if (showTickTickPanel) return ["lg:col-span-7", "lg:col-span-5", null, null] as const;
-    if (showCalendarPanel) return ["lg:col-span-7", null, "lg:col-span-5", null] as const;
-    if (showConnectionHub) return ["lg:col-span-8", null, null, "lg:col-span-4"] as const;
-    return ["lg:col-span-12", null, null, null] as const;
+    if (showCalendarPanel && showConnectionHub) return ["lg:col-span-4", "lg:col-span-5", "lg:col-span-3"] as const;
+    if (showCalendarPanel) return ["lg:col-span-7", "lg:col-span-5", null] as const;
+    if (showConnectionHub) return ["lg:col-span-8", null, "lg:col-span-4"] as const;
+    return ["lg:col-span-12", null, null] as const;
   })();
   const connections = [
     {
@@ -58,13 +49,6 @@ export default async function MissionControl() {
       label: "Google Calendar",
       description: "Events and schedule density",
       connected: calendarConnected,
-      href: "/settings",
-    },
-    {
-      key: "ticktick",
-      label: "TickTick",
-      description: "Tasks filtered into focus work",
-      connected: ticktickConnected,
       href: "/settings",
     },
     {
@@ -84,18 +68,13 @@ export default async function MissionControl() {
         <div className={row2Span[0]}>
           <PrioritiesCard />
         </div>
-        {showTickTickPanel ? (
-          <div className={row2Span[1] ?? "lg:col-span-3"}>
-            <TickTickPanel />
-          </div>
-        ) : null}
         {showCalendarPanel ? (
-          <div className={row2Span[2] ?? "lg:col-span-4"}>
+          <div className={row2Span[1] ?? "lg:col-span-4"}>
             <CalendarTimeline />
           </div>
         ) : null}
         {showConnectionHub ? (
-          <div className={row2Span[3] ?? "lg:col-span-4"}>
+          <div className={row2Span[2] ?? "lg:col-span-4"}>
             <ConnectionHub connections={connections} />
           </div>
         ) : null}
@@ -141,16 +120,7 @@ export default async function MissionControl() {
         </div>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-12">
-        {showCars ? (
-          <div className="lg:col-span-8">
-            <CarDashboard />
-          </div>
-        ) : null}
-        <div className={showCars ? "lg:col-span-4" : "lg:col-span-12"}>
-          <HomeAutomationCard />
-        </div>
-      </div>
+      {showCars ? <CarDashboard /> : null}
 
       <LifeTimeline initialMilestones={lifeData.timeline} />
 
