@@ -88,30 +88,36 @@ export function RecoveryHealth() {
   }, []);
 
   const series = data?.series ?? [];
-  const latest = [...series].reverse().find((d) => d.sleep || d.hrv || d.steps);
-  const previous = latest
-    ? [...series]
-        .reverse()
-        .find((d, i, arr) => i > arr.indexOf(latest) && (d.sleep || d.hrv))
+  const recentSeries = [...series].reverse();
+  const latest = recentSeries.find((d) => d.sleep || d.hrv || d.steps);
+  const latestSleep = recentSeries.find((d) => d.sleep);
+  const previousSleep = latestSleep
+    ? recentSeries.find((d) => d.date < latestSleep.date && d.sleep)
     : undefined;
+  const latestHrv = recentSeries.find((d) => d.hrv);
+  const previousHrv = latestHrv
+    ? recentSeries.find((d) => d.date < latestHrv.date && d.hrv)
+    : undefined;
+  const latestSteps = recentSeries.find((d) => d.steps !== undefined);
+  const latestRestingHeartRate = recentSeries.find((d) => d.restingHeartRate !== undefined);
 
   const sleepDelta =
-    latest?.sleep && previous?.sleep
-      ? Math.round((latest.sleep.asleepHours - previous.sleep.asleepHours) * 60)
+    latestSleep?.sleep && previousSleep?.sleep
+      ? Math.round((latestSleep.sleep.asleepHours - previousSleep.sleep.asleepHours) * 60)
       : null;
   const hrvDelta =
-    latest?.hrv && previous?.hrv
-      ? Math.round(latest.hrv.avgMs - previous.hrv.avgMs)
+    latestHrv?.hrv && previousHrv?.hrv
+      ? Math.round(latestHrv.hrv.avgMs - previousHrv.hrv.avgMs)
       : null;
 
   const stressTone =
-    latest?.restingHeartRate !== undefined && data?.hrvBaselineMs
+    latestRestingHeartRate?.restingHeartRate !== undefined && data?.hrvBaselineMs
       ? "neutral"
       : "neutral";
   // Stress proxy: resting HR vs 14-day baseline-ish (we have HRV baseline,
   // not RHR baseline yet — keep label simple).
-  const stressLabel = latest?.restingHeartRate
-    ? `${latest.restingHeartRate} bpm`
+  const stressLabel = latestRestingHeartRate?.restingHeartRate
+    ? `${latestRestingHeartRate.restingHeartRate} bpm`
     : "—";
 
   const chartData = series.map((d) => ({
@@ -152,7 +158,7 @@ export function RecoveryHealth() {
           <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Stat
               label="Sleep"
-              value={formatHours(latest?.sleep?.asleepHours)}
+              value={formatHours(latestSleep?.sleep?.asleepHours)}
               delta={
                 sleepDelta !== null
                   ? `${sleepDelta >= 0 ? "+" : ""}${sleepDelta}m`
@@ -163,8 +169,8 @@ export function RecoveryHealth() {
             />
             <Stat
               label="HRV"
-              value={latest?.hrv?.avgMs ?? "—"}
-              suffix={latest?.hrv ? "ms" : undefined}
+              value={latestHrv?.hrv?.avgMs ?? "—"}
+              suffix={latestHrv?.hrv ? "ms" : undefined}
               delta={
                 hrvDelta !== null
                   ? `${hrvDelta >= 0 ? "+" : ""}${hrvDelta}`
@@ -175,7 +181,7 @@ export function RecoveryHealth() {
             />
             <Stat
               label="Steps"
-              value={latest?.steps?.toLocaleString() ?? "—"}
+              value={latestSteps?.steps?.toLocaleString() ?? "—"}
               icon={<Footprints className="h-3 w-3" />}
             />
             <Stat
