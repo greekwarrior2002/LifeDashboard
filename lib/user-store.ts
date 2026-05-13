@@ -31,11 +31,7 @@ const FILE_PATH = path.join(DATA_DIR, "user.json");
 // (which would otherwise drop the onboarding profile between requests).
 const STATE_COOKIE = "lifeos_state_v1";
 const INTEGRATION_COOKIE_PREFIX = "lifeos_integration_v1_";
-const INTEGRATION_PROVIDERS: IntegrationProvider[] = [
-  "google",
-  "ticktick",
-  "apple_health",
-];
+const INTEGRATION_PROVIDERS: IntegrationProvider[] = ["google", "apple_health"];
 const STATE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 const COOKIE_BYTE_BUDGET = 3800;
 
@@ -265,10 +261,6 @@ export function toPublic(state: UserState): PublicUserState {
       google: {
         connected: !!state.integrations.google,
         connectedAt: state.integrations.google?.connectedAt ?? null,
-      },
-      ticktick: {
-        connected: !!state.integrations.ticktick,
-        connectedAt: state.integrations.ticktick?.connectedAt ?? null,
       },
       apple_health: {
         connected: !!state.integrations.apple_health,
