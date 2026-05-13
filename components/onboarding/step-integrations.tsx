@@ -12,7 +12,6 @@ import {
 } from "./apple-health-connect";
 
 const cardOptions: Array<{ key: CardKey; label: string; description: string }> = [
-  { key: "ticktick", label: "TickTick", description: "Tasks workspace" },
   { key: "calendar", label: "Calendar", description: "Daily timeline" },
   { key: "health", label: "Health & recovery", description: "Sleep, HRV, readiness" },
   { key: "finance", label: "Finance", description: "Spend, cashflow" },
@@ -41,9 +40,9 @@ export function StepIntegrations({ state, setState, refreshUser }: StepRenderPro
         Connect your tools
       </h2>
       <p className="text-[13px] text-subtle">
-        Connect Google Calendar and TickTick for live data, and pick which cards
-        appear on your dashboard. Skip anything you don't use — empty cards are
-        hidden, not faked.
+        Connect Google Calendar for live data, add Apple Health if you want
+        recovery tracking, and pick which cards appear on your dashboard. Skip
+        anything you don't use - empty cards are hidden, not faked.
       </p>
 
       <div className="space-y-2">
@@ -57,20 +56,6 @@ export function StepIntegrations({ state, setState, refreshUser }: StepRenderPro
               provider="google"
               label="Google"
               connected={state.integrations.google.connected}
-              onChange={refreshUser}
-            />
-          }
-        />
-        <ProviderRow
-          name="TickTick"
-          description="Live task inbox and projects."
-          enabled={state.visibleCards.ticktick}
-          onToggle={() => toggle("ticktick")}
-          right={
-            <OAuthButton
-              provider="ticktick"
-              label="TickTick"
-              connected={state.integrations.ticktick.connected}
               onChange={refreshUser}
             />
           }
@@ -107,12 +92,7 @@ export function StepIntegrations({ state, setState, refreshUser }: StepRenderPro
         </p>
         <div className="grid gap-2 sm:grid-cols-2">
           {cardOptions
-            .filter(
-              (c) =>
-                c.key !== "calendar" &&
-                c.key !== "ticktick" &&
-                c.key !== "health",
-            )
+            .filter((c) => c.key !== "calendar" && c.key !== "health")
             .map((c) => (
               <CardToggle
                 key={c.key}
