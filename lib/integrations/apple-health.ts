@@ -66,6 +66,23 @@ function parseHAEDate(input: string | undefined): Date | null {
   return d;
 }
 
+function stringField(s: HAEMetricSample, names: string[]): string | undefined {
+  for (const name of names) {
+    const value = s[name];
+    if (typeof value === "string" && value.trim() !== "") return value;
+  }
+  return undefined;
+}
+
+function sampleDate(s: HAEMetricSample): Date | null {
+  return parseHAEDate(
+    s.date ??
+      s.startDate ??
+      s.endDate ??
+      stringField(s, ["Date", "date", "Start", "End"]),
+  );
+}
+
 // YYYY-MM-DD in the given IANA timezone for an absolute Date.
 export function localDateKey(d: Date, timezone: string): string {
   try {
@@ -101,9 +118,19 @@ function localClockHours(d: Date, timezone: string): number {
 
 // --- Per-day accumulator ---------------------------------------------------
 
+type SleepSummary = {
+  totalHours?: number;
+  stageHours?: number;
+  inBedHours?: number;
+  bedTime?: number;
+  wakeTime?: number;
+  sources: string[];
+};
+
 type Bucket = {
   date: string;
   sleepBlocks: SleepDay[];
+  sleepSummary: SleepSummary;
   hrvSum: number;
   hrvCount: number;
   rhr?: number;
@@ -122,6 +149,7 @@ function bucket(byDate: Map<string, Bucket>, key: string): Bucket {
     b = {
       date: key,
       sleepBlocks: [],
+      sleepSummary: { sources: [] },
       hrvSum: 0,
       hrvCount: 0,
       workouts: [],
@@ -155,9 +183,32 @@ function normaliseMetricName(name: string): string {
   return name.trim().toLowerCase().replace(/[\s-]+/g, "_");
 }
 
+function normaliseColumnName(name: string): string {
+  return name.trim().toLowerCase().replace(/[\[\]()]/g, "").replace(/[\s-]+/g, "_");
+}
+
 function isSleepMetric(name: string): boolean {
   const normalised = normaliseMetricName(name);
   return normalised === "sleep_analysis" || normalised === "sleep";
+}
+
+type SleepSummaryKind = "total" | "inBed" | "stage" | "asleep" | "awake";
+
+function sleepSummaryKind(name: string): SleepSummaryKind | null {
+  const normalised = normaliseColumnName(name);
+  if (!normalised.startsWith("sleep_analysis_")) return null;
+  if (normalised.includes("total_hr")) return "total";
+  if (normalised.includes("in_bed_hr")) return "inBed";
+  if (
+    normalised.includes("core_hr") ||
+    normalised.includes("deep_hr") ||
+    normalised.includes("rem_hr")
+  ) {
+    return "stage";
+  }
+  if (normalised.includes("asleep_hr")) return "asleep";
+  if (normalised.includes("awake_hr")) return "awake";
+  return null;
 }
 
 function isAsleepState(value: string | undefined): boolean {
@@ -235,7 +286,7 @@ function handleSleepMetric(
     const segmentEnd = parseHAEDate(s.endDate);
     const sleepStart = parseHAEDate(s.sleepStart) ?? parseHAEDate(s.inBedStart) ?? segmentStart;
     const sleepEnd = parseHAEDate(s.sleepEnd) ?? parseHAEDate(s.inBedEnd) ?? segmentEnd;
-    const dateForBucket = sleepEnd ?? segmentEnd ?? segmentStart ?? parseHAEDate(s.date);
+    const dateForBucket = sleepEnd ?? segmentEnd ?? segmentStart ?? sampleDate(s);
     if (!dateForBucket) continue;
 
     const asleep = sleepDurationHours(s, segmentStart, segmentEnd);
@@ -255,6 +306,36 @@ function handleSleepMetric(
   return { handled: true, samples };
 }
 
+function handleSleepSummaryMetric(
+  metric: HAEMetric,
+  kind: SleepSummaryKind,
+  timezone: string,
+  byDate: Map<string, Bucket>,
+): { handled: boolean; samples: number } {
+  if (kind === "asleep" || kind === "awake") return { handled: true, samples: 0 };
+
+  let samples = 0;
+  for (const s of metric.data ?? []) {
+    const value = sampleValue(s);
+    const d = sampleDate(s);
+    if (value === null || value <= 0 || !d) continue;
+
+    const summary = bucket(byDate, localDateKey(d, timezone)).sleepSummary;
+    if (kind === "total") summary.totalHours = value;
+    if (kind === "stage") summary.stageHours = (summary.stageHours ?? 0) + value;
+    if (kind === "inBed") summary.inBedHours = value;
+
+    const start = parseHAEDate(s.sleepStart) ?? parseHAEDate(s.inBedStart) ?? parseHAEDate(s.startDate);
+    const end = parseHAEDate(s.sleepEnd) ?? parseHAEDate(s.inBedEnd) ?? parseHAEDate(s.endDate);
+    if (start) summary.bedTime = localClockHours(start, timezone);
+    if (end) summary.wakeTime = localClockHours(end, timezone);
+    if (s.source) summary.sources.push(s.source);
+    samples++;
+  }
+
+  return { handled: true, samples };
+}
+
 // Map HAE metric name -> handler that updates the bucket for that day.
 function handleMetric(
   metric: HAEMetric,
@@ -265,12 +346,17 @@ function handleMetric(
     return handleSleepMetric(metric, timezone, byDate);
   }
 
+  const summaryKind = sleepSummaryKind(metric.name);
+  if (summaryKind) {
+    return handleSleepSummaryMetric(metric, summaryKind, timezone, byDate);
+  }
+
   let samples = 0;
   switch (normaliseMetricName(metric.name)) {
     case "heart_rate_variability": {
       for (const s of metric.data) {
         const v = sampleValue(s);
-        const d = parseHAEDate(s.date);
+        const d = sampleDate(s);
         if (v === null || !d) continue;
         const b = bucket(byDate, localDateKey(d, timezone));
         b.hrvSum += v;
@@ -282,7 +368,7 @@ function handleMetric(
     case "resting_heart_rate": {
       for (const s of metric.data) {
         const v = sampleValue(s);
-        const d = parseHAEDate(s.date);
+        const d = sampleDate(s);
         if (v === null || !d) continue;
         const b = bucket(byDate, localDateKey(d, timezone));
         b.rhr = v;
@@ -293,7 +379,7 @@ function handleMetric(
     case "respiratory_rate": {
       for (const s of metric.data) {
         const v = sampleValue(s);
-        const d = parseHAEDate(s.date);
+        const d = sampleDate(s);
         if (v === null || !d) continue;
         const b = bucket(byDate, localDateKey(d, timezone));
         b.respRate = v;
@@ -304,7 +390,7 @@ function handleMetric(
     case "step_count": {
       for (const s of metric.data) {
         const v = sampleValue(s);
-        const d = parseHAEDate(s.date);
+        const d = sampleDate(s);
         if (v === null || !d) continue;
         const b = bucket(byDate, localDateKey(d, timezone));
         b.steps = (b.steps ?? 0) + v;
@@ -315,7 +401,7 @@ function handleMetric(
     case "active_energy": {
       for (const s of metric.data) {
         const v = sampleValue(s);
-        const d = parseHAEDate(s.date);
+        const d = sampleDate(s);
         if (v === null || !d) continue;
         const b = bucket(byDate, localDateKey(d, timezone));
         b.activeEnergy = (b.activeEnergy ?? 0) + v;
@@ -326,7 +412,7 @@ function handleMetric(
     case "apple_exercise_time": {
       for (const s of metric.data) {
         const v = sampleValue(s);
-        const d = parseHAEDate(s.date);
+        const d = sampleDate(s);
         if (v === null || !d) continue;
         const b = bucket(byDate, localDateKey(d, timezone));
         b.exerciseMin = (b.exerciseMin ?? 0) + v;
@@ -338,7 +424,7 @@ function handleMetric(
     case "mindful_session": {
       for (const s of metric.data) {
         const v = sampleValue(s);
-        const d = parseHAEDate(s.date);
+        const d = sampleDate(s);
         if (v === null || !d) continue;
         const b = bucket(byDate, localDateKey(d, timezone));
         b.mindfulMin = (b.mindfulMin ?? 0) + v;
@@ -351,22 +437,34 @@ function handleMetric(
   }
 }
 
-function reduceSleepBlocks(blocks: SleepDay[]): SleepDay | undefined {
+function reduceSleepBlocks(blocks: SleepDay[], summary: SleepSummary): SleepDay | undefined {
   const validBlocks = blocks.filter((block) => block.asleepHours > 0);
-  if (validBlocks.length === 0) return undefined;
-  // Pick the longest asleep block as the "main" sleep, sum durations across all.
-  const main = validBlocks.reduce((a, b) => (b.asleepHours > a.asleepHours ? b : a));
-  const inBedHours = validBlocks.reduce((sum, b) => sum + b.inBedHours, 0);
-  const asleepHours = validBlocks.reduce((sum, b) => sum + b.asleepHours, 0);
-  const sources = Array.from(
-    new Set(validBlocks.flatMap((b) => b.sources ?? [])),
-  );
+  if (validBlocks.length > 0) {
+    // Pick the longest asleep block as the "main" sleep, sum durations across all.
+    const main = validBlocks.reduce((a, b) => (b.asleepHours > a.asleepHours ? b : a));
+    const inBedHours = validBlocks.reduce((sum, b) => sum + b.inBedHours, 0);
+    const asleepHours = validBlocks.reduce((sum, b) => sum + b.asleepHours, 0);
+    const sources = Array.from(
+      new Set(validBlocks.flatMap((b) => b.sources ?? [])),
+    );
+    return {
+      inBedHours,
+      asleepHours,
+      bedTime: main.bedTime,
+      wakeTime: main.wakeTime,
+      sources: sources.length ? sources : undefined,
+    };
+  }
+
+  const asleepHours = summary.totalHours ?? summary.stageHours;
+  if (!asleepHours || asleepHours <= 0) return undefined;
+  const inBedHours = Math.max(summary.inBedHours ?? asleepHours, asleepHours);
   return {
     inBedHours,
     asleepHours,
-    bedTime: main.bedTime,
-    wakeTime: main.wakeTime,
-    sources: sources.length ? sources : undefined,
+    bedTime: summary.bedTime ?? 0,
+    wakeTime: summary.wakeTime ?? 0,
+    sources: summary.sources.length ? Array.from(new Set(summary.sources)) : undefined,
   };
 }
 
@@ -394,7 +492,7 @@ export function parseHAEPayload(
       // Stash unknown metrics in `raw` keyed by metric name (sum of qty per day).
       for (const s of m.data ?? []) {
         const v = sampleValue(s);
-        const d = parseHAEDate(s.date);
+        const d = sampleDate(s);
         if (v === null || !d) continue;
         const b = bucket(byDate, localDateKey(d, timezone));
         b.raw[m.name] = (b.raw[m.name] ?? 0) + v;
@@ -427,7 +525,7 @@ export function parseHAEPayload(
   for (const b of byDate.values()) {
     days.push({
       date: b.date,
-      sleep: reduceSleepBlocks(b.sleepBlocks),
+      sleep: reduceSleepBlocks(b.sleepBlocks, b.sleepSummary),
       hrv: b.hrvCount > 0
         ? { avgMs: Math.round(b.hrvSum / b.hrvCount), samples: b.hrvCount }
         : undefined,
