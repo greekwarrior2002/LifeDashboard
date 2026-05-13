@@ -18,6 +18,8 @@ type StoredTickTickTokens = {
   scope?: string;
 };
 
+const REFRESH_BUFFER_MS = 5 * 60 * 1000;
+
 export async function exchangeTickTickCode(
   code: string,
   redirectBaseUrl?: string,
@@ -67,6 +69,46 @@ export async function persistTickTickTokens(
   await setIntegration("ticktick", record);
 }
 
+async function refreshTickTickTokens(
+  secret: string,
+  tokens: StoredTickTickTokens,
+): Promise<StoredTickTickTokens> {
+  if (!tokens.refreshToken) throw new Error("ticktick_reconnect_required");
+  const config = getProviderConfig("ticktick");
+  if (!config) throw new Error("ticktick_not_configured");
+
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: tokens.refreshToken,
+    scope: tokens.scope ?? config.scope,
+  });
+  const basic = Buffer.from(
+    `${config.clientId}:${config.clientSecret}`,
+  ).toString("base64");
+  const res = await fetch(config.tokenUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: `Basic ${basic}`,
+    },
+    body,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`ticktick_token_refresh_failed: ${res.status} ${text}`);
+  }
+
+  const data = (await res.json()) as TickTickTokenResponse;
+  const next = {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token ?? tokens.refreshToken,
+    expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000,
+    scope: data.scope ?? tokens.scope,
+  };
+  await persistTickTickTokens(secret, next);
+  return next;
+}
+
 async function getValidTokens(
   secret: string,
 ): Promise<StoredTickTickTokens | null> {
@@ -74,8 +116,11 @@ async function getValidTokens(
   const record = user.integrations.ticktick;
   if (!record) return null;
   try {
-    return decryptJSON<StoredTickTickTokens>(secret, record.encryptedTokens);
-  } catch {
+    const tokens = decryptJSON<StoredTickTickTokens>(secret, record.encryptedTokens);
+    if (tokens.expiresAt > Date.now() + REFRESH_BUFFER_MS) return tokens;
+    return refreshTickTickTokens(secret, tokens);
+  } catch (err) {
+    if ((err as Error).message.startsWith("ticktick_")) throw err;
     return null;
   }
 }
@@ -91,17 +136,33 @@ export type TickTickTask = {
   tags?: string[];
 };
 
+async function fetchTickTick(
+  secret: string,
+  tokens: StoredTickTickTokens,
+  url: string,
+): Promise<Response> {
+  let res = await fetch(url, {
+    headers: { Authorization: `Bearer ${tokens.accessToken}` },
+  });
+  if (res.status === 401) {
+    const refreshed = await refreshTickTickTokens(secret, tokens);
+    res = await fetch(url, {
+      headers: { Authorization: `Bearer ${refreshed.accessToken}` },
+    });
+  }
+  return res;
+}
+
 export async function listTickTickTasks(
   secret: string,
 ): Promise<TickTickTask[] | null> {
   const tokens = await getValidTokens(secret);
   if (!tokens) return null;
 
-  const projectsRes = await fetch(
+  const projectsRes = await fetchTickTick(
+    secret,
+    tokens,
     "https://api.ticktick.com/open/v1/project",
-    {
-      headers: { Authorization: `Bearer ${tokens.accessToken}` },
-    },
   );
   if (!projectsRes.ok) {
     const text = await projectsRes.text();
@@ -114,9 +175,10 @@ export async function listTickTickTasks(
 
   const tasks: TickTickTask[] = [];
   for (const project of projects) {
-    const dataRes = await fetch(
+    const dataRes = await fetchTickTick(
+      secret,
+      tokens,
       `https://api.ticktick.com/open/v1/project/${project.id}/data`,
-      { headers: { Authorization: `Bearer ${tokens.accessToken}` } },
     );
     if (!dataRes.ok) continue;
     const data = (await dataRes.json()) as {

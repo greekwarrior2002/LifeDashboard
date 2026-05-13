@@ -117,6 +117,16 @@ function dueLabel(t: TickTickTask): string {
   return d.toLocaleDateString();
 }
 
+function friendlyError(error: string): string {
+  if (error.includes("ticktick_reconnect_required")) {
+    return "TickTick needs to be reconnected so this app can receive a refresh token.";
+  }
+  if (error.includes("ticktick_token_refresh_failed")) {
+    return "TickTick rejected the saved token. Disconnect and reconnect TickTick from Settings.";
+  }
+  return "TickTick did not return tasks. Try reconnecting from Settings.";
+}
+
 export function TickTickPanel() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -164,6 +174,7 @@ export function TickTickPanel() {
 
   const visible = buckets[active];
   const connected = data?.connected ?? false;
+  const error = data?.error;
 
   return (
     <GlassCard glow="violet" className="flex h-full flex-col p-5">
@@ -171,7 +182,9 @@ export function TickTickPanel() {
         title="TickTick · Workspace"
         subtitle={
           connected
-            ? `Connected · ${buckets.all.length} open`
+            ? error
+              ? "Connected · needs attention"
+              : `Connected · ${buckets.all.length} open`
             : "Not connected"
         }
         icon={<ListTodo className="h-4 w-4 text-neon-violet" />}
@@ -208,6 +221,18 @@ export function TickTickPanel() {
           <Link
             href="/settings"
             className="mt-1 rounded-md border border-neon-violet/30 bg-neon-violet/10 px-2.5 py-1 text-[11px] text-white hover:bg-neon-violet/20"
+          >
+            Open Settings
+          </Link>
+        </div>
+      ) : error ? (
+        <div className="mt-6 flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-neon-amber/20 bg-neon-amber/[0.06] p-6 text-center">
+          <Plug className="h-5 w-5 text-neon-amber" />
+          <p className="text-[13px] text-white">TickTick needs attention</p>
+          <p className="max-w-sm text-[12px] text-subtle">{friendlyError(error)}</p>
+          <Link
+            href="/settings"
+            className="mt-1 rounded-md border border-neon-amber/30 bg-neon-amber/10 px-2.5 py-1 text-[11px] text-white hover:bg-neon-amber/20"
           >
             Open Settings
           </Link>
