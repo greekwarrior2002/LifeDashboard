@@ -6,7 +6,7 @@ import type { StepRenderProps } from "./wizard";
 export function StepDone({ state }: StepRenderProps) {
   const connected: string[] = [];
   if (state.integrations.google.connected) connected.push("Google Calendar");
-  if (state.integrations.ticktick.connected) connected.push("TickTick");
+  if (state.integrations.apple_health.connected) connected.push("Apple Health");
 
   return (
     <div className="space-y-5">
@@ -23,8 +23,8 @@ export function StepDone({ state }: StepRenderProps) {
       </p>
 
       <div className="space-y-2 rounded-xl border border-white/[0.06] bg-white/[0.015] p-4">
-        <Row label="Name" value={state.profile.name || "—"} />
-        <Row label="Time zone" value={state.profile.timezone || "—"} />
+        <Row label="Name" value={state.profile.name || "-"} />
+        <Row label="Time zone" value={state.profile.timezone || "-"} />
         <Row
           label="Priorities"
           value={
@@ -35,7 +35,7 @@ export function StepDone({ state }: StepRenderProps) {
         />
         <Row
           label="Connected"
-          value={connected.length > 0 ? connected.join(", ") : "None — using empty states"}
+          value={connected.length > 0 ? connected.join(", ") : "None - using empty states"}
         />
         <Row
           label="Sleep target"
