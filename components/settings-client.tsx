@@ -13,7 +13,6 @@ import {
 import type { CardKey, PublicUserState } from "@/lib/types/user";
 
 const cardOptions: Array<{ key: CardKey; label: string }> = [
-  { key: "ticktick", label: "TickTick" },
   { key: "calendar", label: "Calendar" },
   { key: "health", label: "Health" },
   { key: "finance", label: "Finance" },
@@ -111,22 +110,6 @@ export function SettingsClient({
             />
           </div>
           <CalendarSettingsPanel connected={state.integrations.google.connected} />
-          <div className="flex items-center justify-between rounded-lg border border-white/[0.05] bg-white/[0.015] px-3 py-3">
-            <div>
-              <p className="text-[13px] text-white">TickTick</p>
-              <p className="text-[11px] text-muted">
-                {state.integrations.ticktick.connected
-                  ? `Connected${state.integrations.ticktick.connectedAt ? ` · ${new Date(state.integrations.ticktick.connectedAt).toLocaleDateString()}` : ""}`
-                  : "Live tasks and projects"}
-              </p>
-            </div>
-            <OAuthButton
-              provider="ticktick"
-              label="TickTick"
-              connected={state.integrations.ticktick.connected}
-              onChange={refresh}
-            />
-          </div>
           <div className="flex items-center justify-between rounded-lg border border-white/[0.05] bg-white/[0.015] px-3 py-3">
             <div>
               <p className="text-[13px] text-white">Apple Health</p>
