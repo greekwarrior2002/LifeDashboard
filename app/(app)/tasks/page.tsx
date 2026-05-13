@@ -1,6 +1,5 @@
 import { PageHeader } from "@/components/page-header";
 import { PrioritiesCard } from "@/components/cards/priorities";
-import { TickTickPanel } from "@/components/cards/ticktick-panel";
 
 export default function TasksPage() {
   return (
@@ -8,11 +7,10 @@ export default function TasksPage() {
       <PageHeader
         eyebrow="Tasks"
         title="What matters today"
-        description="TickTick-synced task workspace with AI prioritization, overload detection, and deep-work suggestions."
+        description="A focused priorities workspace for today, without external task integrations."
       />
-      <div className="grid gap-5 md:grid-cols-2">
+      <div className="max-w-3xl">
         <PrioritiesCard />
-        <TickTickPanel />
       </div>
     </div>
   );
