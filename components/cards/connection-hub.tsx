@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, CheckCircle2, HeartPulse, ListTodo, PlugZap } from "lucide-react";
+import { CalendarDays, CheckCircle2, HeartPulse, PlugZap } from "lucide-react";
 import { GlassCard, CardHeader } from "@/components/ui/glass-card";
 import { cn } from "@/lib/utils";
 
@@ -15,7 +15,6 @@ type Connection = {
 
 const iconMap: Record<string, React.ReactNode> = {
   google: <CalendarDays className="h-3.5 w-3.5" />,
-  ticktick: <ListTodo className="h-3.5 w-3.5" />,
   apple_health: <HeartPulse className="h-3.5 w-3.5" />,
 };
 
